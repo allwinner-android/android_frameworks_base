@@ -148,6 +148,7 @@ private:
     DisplayEventReceiver mDisplayEventReceiver;
 
     PointerResources mResources;
+    int unfadeset;
 
     struct Locked {
         bool animationPending;

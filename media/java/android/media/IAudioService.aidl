@@ -44,7 +44,11 @@ interface IAudioService {
 
     void adjustStreamVolume(int streamType, int direction, int flags, String callingPackage);
 
+    void adjustMasterVolume(int direction, int flags, String callingPackage);
+
     void setStreamVolume(int streamType, int index, int flags, String callingPackage);
+
+    void setMasterVolume(int index, int flags, String callingPackage);
 
     boolean isStreamMute(int streamType);
 
@@ -56,11 +60,17 @@ interface IAudioService {
 
     int getStreamVolume(int streamType);
 
+    int getMasterVolume();
+
     int getStreamMinVolume(int streamType);
 
     int getStreamMaxVolume(int streamType);
 
+    int getMasterMaxVolume();
+
     int getLastAudibleStreamVolume(int streamType);
+
+	int getLastAudibleMasterVolume();
 
     void setMicrophoneMute(boolean on, String callingPackage, int userId);
 

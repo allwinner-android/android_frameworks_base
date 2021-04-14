@@ -1130,7 +1130,11 @@ public class Process {
      * other's processes.
      */
     public static final void killProcess(int pid) {
-        sendSignal(pid, SIGNAL_KILL);
+	if(getUidForPid(pid)!=SYSTEM_UID){
+        	sendSignal(pid, SIGNAL_KILL);
+	}else{
+		Log.e(LOG_TAG,"We are sending kill signal to system pid = " + pid);
+	}
     }
 
     /** @hide */
@@ -1154,7 +1158,11 @@ public class Process {
      * beat you up.
      */
     public static final void killProcessQuiet(int pid) {
-        sendSignalQuiet(pid, SIGNAL_KILL);
+	 if(getUidForPid(pid)!=SYSTEM_UID){
+        	sendSignalQuiet(pid, SIGNAL_KILL);
+	 }else{
+		Log.e(LOG_TAG,"We are sending kill signal to system pid = " + pid);
+	 }
     }
 
     /**

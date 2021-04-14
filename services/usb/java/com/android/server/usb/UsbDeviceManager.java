@@ -37,6 +37,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.os.ParcelFileDescriptor;
+import android.os.PowerManager;
 import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.os.UEventObserver;
@@ -150,6 +151,8 @@ public class UsbDeviceManager {
     private UsbDebuggingManager mDebuggingManager;
     private final UsbAlsaManager mUsbAlsaManager;
     private Intent mBroadcastedIntent;
+    private PowerManager.WakeLock wl;
+    private int wlref = 0;
 
     private class AdbSettingsObserver extends ContentObserver {
         public AdbSettingsObserver() {
@@ -191,6 +194,13 @@ public class UsbDeviceManager {
         }
     };
 
+    private void initUsb0State(){
+        if(SystemProperties.getInt("persist.sys.usb0device",0)==1){
+            Slog.d(TAG,"start usb0 as device");
+            SystemProperties.set("persist.sys.usb0device","1");
+        }
+    }
+
     public UsbDeviceManager(Context context, UsbAlsaManager alsaManager) {
         mContext = context;
         mUsbAlsaManager = alsaManager;
@@ -198,6 +208,10 @@ public class UsbDeviceManager {
         PackageManager pm = mContext.getPackageManager();
         mHasUsbAccessory = pm.hasSystemFeature(PackageManager.FEATURE_USB_ACCESSORY);
         initRndisAddress();
+	initUsb0State();
+
+        PowerManager power = (PowerManager) mContext.getSystemService(Context.POWER_SERVICE);
+        wl = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, TAG);
 
         readOemUsbOverrideConfig();
 
@@ -220,6 +234,21 @@ public class UsbDeviceManager {
     private UsbSettingsManager getCurrentSettings() {
         synchronized (mLock) {
             return mCurrentSettings;
+        }
+    }
+
+    private void enableWakeLock(boolean enable){
+        Slog.d(TAG,"enableWakeLock " + enable);
+        if (enable) {
+            if (wlref == 0) {
+                wlref++;
+                wl.acquire();
+            }
+        } else {
+            if (wlref == 1) {
+                wl.release();
+                wlref--;
+            }
         }
     }
 
@@ -699,6 +728,7 @@ public class UsbDeviceManager {
                 case MSG_UPDATE_STATE:
                     mConnected = (msg.arg1 == 1);
                     mConfigured = (msg.arg2 == 1);
+                    enableWakeLock(mConnected);
                     if (!mConnected) {
                         // When a disconnect occurs, relock access to sensitive user data
                         mUsbDataUnlocked = false;

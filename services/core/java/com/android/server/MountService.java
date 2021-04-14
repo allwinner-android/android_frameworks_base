@@ -1263,16 +1263,15 @@ class MountService extends IMountService.Stub
         if (vol.type == VolumeInfo.TYPE_EMULATED) {
             final StorageManager storage = mContext.getSystemService(StorageManager.class);
             final VolumeInfo privateVol = storage.findPrivateForEmulated(vol);
-
             if (Objects.equals(StorageManager.UUID_PRIVATE_INTERNAL, mPrimaryStorageUuid)
                     && VolumeInfo.ID_PRIVATE_INTERNAL.equals(privateVol.id)) {
-                Slog.v(TAG, "Found primary storage at " + vol);
+                Slog.v(TAG, "1Found primary storage at " + vol);
                 vol.mountFlags |= VolumeInfo.MOUNT_FLAG_PRIMARY;
                 vol.mountFlags |= VolumeInfo.MOUNT_FLAG_VISIBLE;
                 mHandler.obtainMessage(H_VOLUME_MOUNT, vol).sendToTarget();
 
             } else if (Objects.equals(privateVol.fsUuid, mPrimaryStorageUuid)) {
-                Slog.v(TAG, "Found primary storage at " + vol);
+                Slog.v(TAG, "2Found primary storage at " + vol);
                 vol.mountFlags |= VolumeInfo.MOUNT_FLAG_PRIMARY;
                 vol.mountFlags |= VolumeInfo.MOUNT_FLAG_VISIBLE;
                 mHandler.obtainMessage(H_VOLUME_MOUNT, vol).sendToTarget();
@@ -1821,7 +1820,7 @@ class MountService extends IMountService.Stub
         final CountDownLatch latch = findOrCreateDiskScanLatch(diskId);
         try {
             mConnector.execute("volume", "partition", diskId, "private");
-            waitForLatch(latch, "partitionPrivate", 3 * DateUtils.MINUTE_IN_MILLIS);
+            waitForLatch(latch, "partitionPrivate", 10 * DateUtils.MINUTE_IN_MILLIS);
         } catch (NativeDaemonConnectorException e) {
             throw e.rethrowAsParcelableException();
         } catch (TimeoutException e) {

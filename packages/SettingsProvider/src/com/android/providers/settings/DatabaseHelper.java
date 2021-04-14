@@ -375,6 +375,23 @@ class DatabaseHelper extends SQLiteOpenHelper {
                     Settings.Secure.WIFI_WATCHDOG_PING_COUNT,
                     Settings.Secure.WIFI_WATCHDOG_PING_DELAY_MS,
                     Settings.Secure.WIFI_WATCHDOG_PING_TIMEOUT_MS,
+                    Settings.Secure.HOME_PAGE,    //cmcc by fuqiang, start
+                    Settings.Secure.UPGRADE_URL,
+                    Settings.Secure.UPGRADE_PATH,
+                    Settings.Secure.NTVUSERACCOUNT,
+                    Settings.Secure.NTVUSERSUFFIX,
+                    Settings.Secure.NTVUSERPASSWORD,
+                    Settings.Secure.NTP_SERVER,
+                    Settings.Secure.NTP_SERVER2,
+                    Settings.Secure.DEFAULT_SCREEN_RATIO,
+                    Settings.Secure.DEFAULT_PLAYER_QUALITY,
+                    Settings.Secure.DHCP_USER,
+                    Settings.Secure.DHCP_PSWD,
+                    Settings.Secure.DHCP_OPTION,
+                    Settings.Secure.DHCP_IPVER,
+                    Settings.Secure.PPPOE_USERNAME,
+                    Settings.Secure.PPPOE_PSWD,
+                    Settings.Secure.SQM_START_MODE, //cmcc by fuqiang, end
                 };
             moveSettingsToNewTable(db, TABLE_SYSTEM, TABLE_SECURE, settingsToMove, false);
             upgradeVersion = 28;
@@ -2395,6 +2412,13 @@ class DatabaseHelper extends SQLiteOpenHelper {
             loadIntegerSetting(stmt, Settings.System.POINTER_SPEED,
                     R.integer.def_pointer_speed);
 
+            loadStringSetting(stmt, Settings.System.AUDIO_OUTPUT_CHANNEL,
+                    R.string.def_audio_output_channel);
+            loadIntegerSetting(stmt, Settings.System.AUDIO_MANAGE_POLICY,
+                    R.integer.def_audio_manage_policy);
+            loadBooleanSetting(stmt, Settings.System.ENABLE_PASS_THROUGH,
+                    R.bool.def_enable_pass_through);
+
             /*
              * IMPORTANT: Do not add any more upgrade steps here as the global,
              * secure, and system settings are no longer stored in a database
@@ -2484,6 +2508,62 @@ class DatabaseHelper extends SQLiteOpenHelper {
 
             loadStringSetting(stmt, Settings.Secure.ACCESSIBILITY_SCREEN_READER_URL,
                     R.string.def_accessibility_screen_reader_url);
+			//cmcc by fuqiang, start
+            loadStringSetting(stmt, Settings.Secure.HOME_PAGE,
+                    R.string.def_home_page);
+
+            loadStringSetting(stmt, Settings.Secure.UPGRADE_URL,
+                    R.string.def_upgrade_url);
+
+            loadStringSetting(stmt, Settings.Secure.UPGRADE_PATH,
+                    R.string.def_upgrade_path);
+
+            loadStringSetting(stmt, Settings.Secure.NTVUSERACCOUNT,
+                    R.string.def_ntvuseraccount);
+
+            loadStringSetting(stmt, Settings.Secure.NTVUSERSUFFIX,
+                    R.string.def_ntvusersuffix);
+
+            loadStringSetting(stmt, Settings.Secure.NTVUSERPASSWORD,
+                    R.string.def_ntvuserpassword);
+
+            loadStringSetting(stmt, Settings.Secure.NTP_SERVER,
+                    R.string.def_ntp_server);
+
+			loadStringSetting(stmt, Settings.Secure.NTP_SERVER2,
+                    R.string.def_ntp_server2);
+
+            loadStringSetting(stmt, Settings.Secure.DEFAULT_SCREEN_RATIO,
+                    R.string.def_default_screen_ratio);
+
+            loadStringSetting(stmt, Settings.Secure.DEFAULT_PLAYER_QUALITY,
+                    R.string.def_default_player_quality);
+
+
+            loadStringSetting(stmt, Settings.Secure.DISPLAY_AREA,
+                    R.string.def_display_area);
+
+			loadStringSetting(stmt, Settings.Secure.DHCP_USER,
+                    R.string.def_dhcp_user);
+
+			loadStringSetting(stmt, Settings.Secure.DHCP_PSWD,
+                    R.string.def_dhcp_pswd);
+
+			loadStringSetting(stmt, Settings.Secure.DHCP_OPTION,
+                    R.string.def_dhcp_option);
+
+			loadStringSetting(stmt, Settings.Secure.DHCP_IPVER,
+                    R.string.def_dhcp_ipver);
+
+			loadStringSetting(stmt, Settings.Secure.PPPOE_USERNAME,
+                    R.string.def_pppoe_username);
+
+			loadStringSetting(stmt, Settings.Secure.PPPOE_PSWD,
+                    R.string.def_pppoe_pswd);
+
+			loadStringSetting(stmt, Settings.Secure.SQM_START_MODE,
+                    R.string.def_sqm_start_mode);
+			//cmcc by fuqiang, end
 
             if (SystemProperties.getBoolean("ro.lockscreen.disable.default", false) == true) {
                 loadSetting(stmt, Settings.System.LOCKSCREEN_DISABLED, "1");
@@ -2502,7 +2582,6 @@ class DatabaseHelper extends SQLiteOpenHelper {
                     com.android.internal.R.string.config_dreamsDefaultComponent);
             loadStringSetting(stmt, Settings.Secure.SCREENSAVER_DEFAULT_COMPONENT,
                     com.android.internal.R.string.config_dreamsDefaultComponent);
-
             loadBooleanSetting(stmt, Settings.Secure.ACCESSIBILITY_DISPLAY_MAGNIFICATION_ENABLED,
                     R.bool.def_accessibility_display_magnification_enabled);
 
@@ -2677,6 +2756,7 @@ class DatabaseHelper extends SQLiteOpenHelper {
             loadIntegerSetting(stmt, Settings.Global.DOCK_AUDIO_MEDIA_ENABLED,
                     R.integer.def_dock_audio_media_enabled);
 
+
             loadSetting(stmt, Settings.Global.SET_INSTALL_LOCATION, 0);
             loadSetting(stmt, Settings.Global.DEFAULT_INSTALL_LOCATION,
                     PackageHelper.APP_INSTALL_AUTO);
@@ -2712,6 +2792,9 @@ class DatabaseHelper extends SQLiteOpenHelper {
 
             loadSetting(stmt, Settings.Global.ENHANCED_4G_MODE_ENABLED,
                     ImsConfig.FeatureValueConstants.ON);
+
+            loadBooleanSetting(stmt, Settings.Global.CAPTIVE_PORTAL_DETECTION_ENABLED,
+                    R.bool.def_captive_portal_detection_enabled);
 
             /*
              * IMPORTANT: Do not add any more upgrade steps here as the global,

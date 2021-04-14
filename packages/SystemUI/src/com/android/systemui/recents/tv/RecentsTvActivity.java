@@ -297,6 +297,7 @@ public class RecentsTvActivity extends Activity implements OnPreDrawListener {
             finish();
             return;
         }
+		mPipManager.initialize(this);
         mPipRecentsOverlayManager = PipManager.getInstance().getPipRecentsOverlayManager();
 
         // Register this activity with the event bus

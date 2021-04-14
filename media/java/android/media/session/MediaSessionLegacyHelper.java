@@ -218,10 +218,15 @@ public class MediaSessionLegacyHelper {
                 mSessionManager.dispatchAdjustVolume(AudioManager.USE_DEFAULT_STREAM_TYPE,
                         direction, flags);
             } else if (isMute) {
-                if (down && keyEvent.getRepeatCount() == 0) {
+                if (down) {
+                    // We need to send two volume events on down, one to mute
+                    // and one to show the UI
                     mSessionManager.dispatchAdjustVolume(AudioManager.USE_DEFAULT_STREAM_TYPE,
                             AudioManager.ADJUST_TOGGLE_MUTE, flags);
                 }
+                mSessionManager.dispatchAdjustVolume(AudioManager.USE_DEFAULT_STREAM_TYPE,
+                        0 /* direction, causes UI to show on down */, flags);
+
             }
         }
     }

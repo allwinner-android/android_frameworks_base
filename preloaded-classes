@@ -1488,6 +1488,7 @@ android.net.ConnectivityManager$NetworkCallback
 android.net.ConnectivityThread
 android.net.Credentials
 android.net.EthernetManager
+android.net.pppoe.PppoeManager
 android.net.IConnectivityManager
 android.net.IConnectivityManager$Stub
 android.net.IConnectivityManager$Stub$Proxy

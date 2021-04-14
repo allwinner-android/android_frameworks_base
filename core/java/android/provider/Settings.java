@@ -80,6 +80,16 @@ import java.util.Set;
  */
 public final class Settings {
 
+      /**
+        * Ethernet related stored configurations
+        * @hide
+        */
+      public static final String ETHERNET_MODE             = "eth_mode";
+      /**
+        * parameter related to pppoe enable.
+        * @hide
+        */
+      public static final String PPPOE_ENABLED             = "pppoe_enabled";
     // Intent actions for Settings
 
     /**
@@ -1775,6 +1785,23 @@ public final class Settings {
             MOVED_TO_SECURE.add(Secure.WIFI_WATCHDOG_PING_COUNT);
             MOVED_TO_SECURE.add(Secure.WIFI_WATCHDOG_PING_DELAY_MS);
             MOVED_TO_SECURE.add(Secure.WIFI_WATCHDOG_PING_TIMEOUT_MS);
+			MOVED_TO_SECURE.add(Secure.HOME_PAGE);   //cmcc by fuqiang, start
+            MOVED_TO_SECURE.add(Secure.UPGRADE_URL);
+            MOVED_TO_SECURE.add(Secure.UPGRADE_PATH);
+            MOVED_TO_SECURE.add(Secure.NTVUSERACCOUNT);
+            MOVED_TO_SECURE.add(Secure.NTVUSERSUFFIX);
+            MOVED_TO_SECURE.add(Secure.NTVUSERPASSWORD);
+            MOVED_TO_SECURE.add(Secure.NTP_SERVER);
+			MOVED_TO_SECURE.add(Secure.NTP_SERVER2);
+			MOVED_TO_SECURE.add(Secure.DHCP_USER);
+			MOVED_TO_SECURE.add(Secure.DHCP_PSWD);
+			MOVED_TO_SECURE.add(Secure.DHCP_OPTION);
+			MOVED_TO_SECURE.add(Secure.DHCP_IPVER);
+			MOVED_TO_SECURE.add(Secure.PPPOE_USERNAME);
+			MOVED_TO_SECURE.add(Secure.PPPOE_PSWD);
+            MOVED_TO_SECURE.add(Secure.DEFAULT_SCREEN_RATIO);
+            MOVED_TO_SECURE.add(Secure.DEFAULT_PLAYER_QUALITY);
+			MOVED_TO_SECURE.add(Secure.SQM_START_MODE);//cmcc by fuqiang, end
 
             // At one time in System, then Global, but now back in Secure
             MOVED_TO_SECURE.add(Secure.INSTALL_NON_MARKET_APPS);
@@ -1794,7 +1821,8 @@ public final class Settings {
             MOVED_TO_SECURE_THEN_GLOBAL.add(Global.DEVICE_PROVISIONED);
             MOVED_TO_SECURE_THEN_GLOBAL.add(Global.USB_MASS_STORAGE_ENABLED);
             MOVED_TO_SECURE_THEN_GLOBAL.add(Global.HTTP_PROXY);
-
+            MOVED_TO_GLOBAL.add(Settings.Global.ETHERNET_MODE); //add by zhaokai ,2016.11.11
+            MOVED_TO_GLOBAL.add(Settings.Global.PPPOE_ENABLED); //add by zhaokai,2016.12.06
             // these are moving directly from system to global
             MOVED_TO_GLOBAL.add(Settings.Global.AIRPLANE_MODE_ON);
             MOVED_TO_GLOBAL.add(Settings.Global.AIRPLANE_MODE_RADIOS);
@@ -2381,6 +2409,19 @@ public final class Settings {
                 }
             }
         }
+
+			/**
+			 * Description:record the audio output channel<br/>
+			 * @hide
+			 */
+			public static final String AUDIO_OUTPUT_CHANNEL = "audio_output_channel";
+			/**
+			 * Description:record the audio output policy<br/>
+			 * @hide
+			 */
+			public static final String AUDIO_MANAGE_POLICY = "audio_manage_policy";
+			/**@hide*/
+			public static final String ENABLE_PASS_THROUGH = "enable_pass_through";
 
         /**
          * @deprecated Use {@link android.provider.Settings.Global#STAY_ON_WHILE_PLUGGED_IN} instead
@@ -3541,7 +3582,7 @@ public final class Settings {
                 }
             }
         };
-
+        public static final String MOUSE_ADVANCE = "mouse_advance";
         /**
          * IMPORTANT: If you add a new public settings you also have to add it to
          * PUBLIC_SETTINGS below. If the new setting is hidden you have to add
@@ -3601,9 +3642,15 @@ public final class Settings {
             POINTER_SPEED,
             VIBRATE_WHEN_RINGING,
             RINGTONE,
+            MOUSE_ADVANCE,
             LOCK_TO_APP_ENABLED,
             NOTIFICATION_SOUND,
-            ACCELEROMETER_ROTATION
+            ACCELEROMETER_ROTATION,
+            /* AW Code Begin */
+            AUDIO_OUTPUT_CHANNEL,
+            AUDIO_MANAGE_POLICY,
+            ENABLE_PASS_THROUGH,
+            /* AW Code End */
         };
 
         /**
@@ -6115,6 +6162,27 @@ public final class Settings {
          */
         public static final String SLEEP_TIMEOUT = "sleep_timeout";
 
+		//cmcc by fuqiang, start
+        public static final String HOME_PAGE = "home_page";
+        public static final String UPGRADE_URL = "upgrade_url";
+        public static final String UPGRADE_PATH = "upgrade_path";
+        public static final String NTVUSERACCOUNT = "ntvuseraccount";
+        public static final String NTVUSERSUFFIX = "ntvusersuffix";
+        public static final String NTVUSERPASSWORD = "ntvuserpassword";
+        public static final String NTP_SERVER = "ntp_server";
+		public static final String NTP_SERVER2 = "ntp_server2";
+        public static final String DEFAULT_SCREEN_RATIO = "default_screen_ratio";
+        public static final String DEFAULT_PLAYER_QUALITY = "default_player_quality";
+        public static final String DISPLAY_AREA = "display_area";
+		public static final String DHCP_USER = "dhcp_user";
+		public static final String DHCP_PSWD = "dhcp_pswd";
+		public static final String DHCP_OPTION = "dhcp_option";
+		public static final String DHCP_IPVER = "dhcp_ipver";
+		public static final String PPPOE_USERNAME = "pppoe_username";
+		public static final String PPPOE_PSWD = "pppoe_pswd";
+		public static final String SQM_START_MODE = "sqm_start_mode";
+		//cmcc by fuqiang, end
+
         /**
          * Controls whether double tap to wake is enabled.
          * @hide
@@ -6526,6 +6594,12 @@ public final class Settings {
          * The content:// style URL for global secure settings items.  Not public.
          */
         public static final Uri CONTENT_URI = Uri.parse("content://" + AUTHORITY + "/global");
+        /**
+        * Ethernet related stored configurations
+        * @hide
+        */
+        public static final String ETHERNET_MODE             = "eth_mode";
+        public static final String PPPOE_ENABLED             = "pppoe_enabled";
 
         /**
          * Whether users are allowed to add more users or guest from lockscreen.

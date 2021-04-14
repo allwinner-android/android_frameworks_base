@@ -3250,6 +3250,9 @@ public class Intent implements Parcelable, Cloneable {
      */
     public static final int EXTRA_THERMAL_STATE_EXCEEDED = 2;
 
+    @SdkConstant(SdkConstantType.BROADCAST_INTENT_ACTION)
+    public static final String ACTION_HDMISTATUS_CHANGED = "android.intent.action.HDMISTATUS_CHANGED";
+    public final static String ACTION_HDMI_PLUGGED = "android.intent.action.HDMI_PLUGGED";
 
     // ---------------------------------------------------------------------
     // ---------------------------------------------------------------------
@@ -4631,6 +4634,14 @@ public class Intent implements Parcelable, Cloneable {
      * @hide
      */
     public static final int FLAG_RECEIVER_EXCLUDE_BACKGROUND = 0x00800000;
+
+     /*add by chenjd,2013-03-19,start {{---------------------------
+     * add intent for audio plug in/out
+     */
+     @SdkConstant(SdkConstantType.BROADCAST_INTENT_ACTION)
+     public static final String ACTION_AUDIO_PLUG_IN_OUT =
+          "android.intent.action.AUDIO_PLUG_IN_OUT";
+     /*add by chenjd, end ---------------------------------------}}*/
 
     /**
      * @hide Flags that can't be changed with PendingIntent.

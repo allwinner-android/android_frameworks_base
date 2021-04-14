@@ -1371,6 +1371,36 @@ static void nativeSetShowTouches(JNIEnv* /* env */,
 
     im->setShowTouches(enabled);
 }
+//support mouse mode
+static void android_server_InputManager_nativeKeyEnterMouseMode(JNIEnv* env, jclass clazz, jlong ptr)
+{
+    NativeInputManager* im = reinterpret_cast<NativeInputManager*>(ptr);
+    im->getInputManager()->getReader()->keyEnterMouseMode();
+}
+
+static void android_server_InputManager_nativeKeyExitMouseMode(JNIEnv* env, jclass clazz, jlong ptr)
+{
+    NativeInputManager* im = reinterpret_cast<NativeInputManager*>(ptr);
+    im->getInputManager()->getReader()->keyExitMouseMode();
+}
+
+static void android_server_InputManager_nativeKeySetMouseBtnCode(JNIEnv* env, jclass clazz,jlong ptr,jint leftbtn,jint midbtn,jint rightbtn)
+{
+    NativeInputManager* im = reinterpret_cast<NativeInputManager*>(ptr);
+    im->getInputManager()->getReader()->keySetMouseBtnCode((int)leftbtn,(int)midbtn,(int)rightbtn);
+}
+
+static void android_server_InputManager_nativeKeySetMouseDistance(JNIEnv* env, jclass clazz,jlong ptr,jint distance)
+{
+    NativeInputManager* im = reinterpret_cast<NativeInputManager*>(ptr);
+    im->getInputManager()->getReader()->keySetMouseDistance((int)distance);
+}
+
+static void android_server_InputManager_nativeKeySetMouseMoveCode(JNIEnv* env, jclass clazz,jlong ptr,jint left,jint right,jint top,jint bottom)
+{
+    NativeInputManager* im = reinterpret_cast<NativeInputManager*>(ptr);
+    im->getInputManager()->getReader()->keySetMouseMoveCode((int)left,(int)right,(int)top,(int)bottom);
+}
 
 static void nativeSetInteractive(JNIEnv* env,
         jclass clazz, jlong ptr, jboolean interactive) {
@@ -1537,6 +1567,17 @@ static const JNINativeMethod gInputManagerMethods[] = {
             (void*) nativeReloadPointerIcons },
     { "nativeSetCustomPointerIcon", "(JLandroid/view/PointerIcon;)V",
             (void*) nativeSetCustomPointerIcon },
+    //support mouse mode
+    { "nativeKeyEnterMouseMode", "(J)V",
+            (void*) android_server_InputManager_nativeKeyEnterMouseMode},
+    { "nativeKeyExitMouseMode", "(J)V",
+            (void*) android_server_InputManager_nativeKeyExitMouseMode},
+    { "nativeKeySetMouseDistance", "(JI)V",
+            (void*) android_server_InputManager_nativeKeySetMouseDistance},
+    { "nativeKeySetMouseMoveCode", "(JIIII)V",
+            (void*) android_server_InputManager_nativeKeySetMouseMoveCode},
+    { "nativeKeySetMouseBtnCode", "(JIII)V",
+            (void*) android_server_InputManager_nativeKeySetMouseBtnCode},
 };
 
 #define FIND_CLASS(var, className) \

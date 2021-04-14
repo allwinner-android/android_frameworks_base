@@ -536,6 +536,26 @@ public class IWindowManagerImpl implements IWindowManager {
         // TODO Auto-generated method stub
         return null;
     }
+    //support mouse mode
+    public void keyEnterMouseMode(){
+
+    }
+
+    public void keyExitMouseMode(){
+
+    }
+
+    public void keySetMouseMoveCode(int left,int right,int top,int bottom){
+
+    }
+
+    public void keySetMouseBtnCode(int leftbtn,int midbtn,int rightbtn){
+
+    }
+
+    public void keySetMouseDistance(int distance){
+
+    }
 
     @Override
     public int getDockedStackSide() throws RemoteException {

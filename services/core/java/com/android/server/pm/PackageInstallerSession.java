@@ -731,6 +731,10 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
             // validate split names marked for removal
             final int flags = mSignatures == null ? PackageManager.GET_SIGNATURES : 0;
             final PackageInfo pkg = mPm.getPackageInfo(params.appPackageName, flags, userId);
+			if(pkg == null){
+				throw new PackageManagerException(INSTALL_FAILED_INVALID_APK,
+                        "The PackageInfo pkg is a null object reference!");
+			}
             for (String splitName : removeSplitList) {
                 if (!ArrayUtils.contains(pkg.splitNames, splitName)) {
                     throw new PackageManagerException(INSTALL_FAILED_INVALID_APK,

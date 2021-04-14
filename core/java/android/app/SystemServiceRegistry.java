@@ -73,6 +73,11 @@ import android.net.ConnectivityThread;
 import android.net.EthernetManager;
 import android.net.IConnectivityManager;
 import android.net.IEthernetManager;
+
+/* add by zhaokai for pppoe,2016.10.27 */
+import android.net.PppoeManager;
+import android.net.IPppoeManager;
+
 import android.net.INetworkPolicyManager;
 import android.net.NetworkPolicyManager;
 import android.net.NetworkScoreManager;
@@ -90,9 +95,11 @@ import android.net.wifi.p2p.IWifiP2pManager;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.nfc.NfcManager;
 import android.os.BatteryManager;
+import android.os.DisplayOutputManager;
 import android.os.DropBoxManager;
 import android.os.HardwarePropertiesManager;
 import android.os.IBinder;
+import android.os.IDisplayOutputManager;
 import android.os.IHardwarePropertiesManager;
 import android.os.IPowerManager;
 import android.os.IRecoverySystem;
@@ -303,6 +310,19 @@ final class SystemServiceRegistry {
             @Override
             public DisplayManager createService(ContextImpl ctx) {
                 return new DisplayManager(ctx.getOuterContext());
+            }});
+
+        registerService(Context.DISPLAYOUTPUT_SERVICE, DisplayOutputManager.class,
+                new CachedServiceFetcher<DisplayOutputManager>() {
+            @Override
+            public DisplayOutputManager createService(ContextImpl ctx) {
+                IBinder b = ServiceManager.getService(Context.DISPLAYOUTPUT_SERVICE);
+                IDisplayOutputManager service = IDisplayOutputManager.Stub.asInterface(b);
+                if (service == null) {
+                    Log.wtf(TAG, "Failed to get device output manager service.");
+                }
+                return new DisplayOutputManager(ctx.getOuterContext(),
+                        service);
             }});
 
         registerService(Context.INPUT_METHOD_SERVICE, InputMethodManager.class,
@@ -554,6 +574,16 @@ final class SystemServiceRegistry {
                 IEthernetManager service = IEthernetManager.Stub.asInterface(b);
                 return new EthernetManager(ctx.getOuterContext(), service);
             }});
+       /*add by zhaokai for pppoe,2016.10.27*/
+       registerService(Context.PPPOE_SERVICE, PppoeManager.class,
+                new CachedServiceFetcher<PppoeManager>() {
+            @Override
+            public PppoeManager createService(ContextImpl ctx) {
+                IBinder b = ServiceManager.getService(Context.PPPOE_SERVICE);
+                IPppoeManager service = IPppoeManager.Stub.asInterface(b);
+                return new PppoeManager(ctx.getOuterContext(),service);
+            }});
+
 
         registerService(Context.WINDOW_SERVICE, WindowManager.class,
                 new CachedServiceFetcher<WindowManager>() {

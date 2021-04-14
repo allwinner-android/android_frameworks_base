@@ -212,6 +212,37 @@ public class ZygoteInit {
         Log.d(TAG, "end preload");
     }
 
+    static void preloadOptBeforeSystemServer() {
+        Log.d(TAG, "begin preload");
+        Trace.traceBegin(Trace.TRACE_TAG_DALVIK, "BeginIcuCachePinning");
+        beginIcuCachePinning();
+        Trace.traceEnd(Trace.TRACE_TAG_DALVIK);
+        Log.d(TAG, "preload opengl");
+        Trace.traceBegin(Trace.TRACE_TAG_DALVIK, "PreloadOpenGL");
+        preloadOpenGL();
+        Trace.traceEnd(Trace.TRACE_TAG_DALVIK);
+        Log.d(TAG, "preload sharedlibraries");
+        preloadSharedLibraries();
+        Log.d(TAG, "preload preloadTextResources");
+        preloadTextResources();
+        // Ask the WebViewFactory to do any initialization that must run in the zygote process,
+        // for memory sharing purposes.
+        Log.d(TAG, "prepareWebViewInZygote");
+        WebViewFactory.prepareWebViewInZygote();
+        endIcuCachePinning();
+        warmUpJcaProviders();
+        Log.d(TAG, "end preload");
+    }
+
+    static void preloadOptAfterSystemServer() {
+        Trace.traceBegin(Trace.TRACE_TAG_DALVIK, "PreloadClasses");
+        preloadClasses();
+        Trace.traceEnd(Trace.TRACE_TAG_DALVIK);
+         Trace.traceBegin(Trace.TRACE_TAG_DALVIK, "PreloadResources");
+        preloadResources();
+        Trace.traceEnd(Trace.TRACE_TAG_DALVIK);
+    }
+
     private static void beginIcuCachePinning() {
         // Pin ICU data in memory from this point that would normally be held by soft references.
         // Without this, any references created immediately below or during class preloading
@@ -684,6 +715,7 @@ public class ZygoteInit {
         }
         return result;
     }
+    static int preloadOpt = 0;
 
     public static void main(String argv[]) {
         // Mark zygote start. This ensures that thread creation will throw
@@ -716,10 +748,21 @@ public class ZygoteInit {
             }
 
             registerZygoteSocket(socketName);
+            preloadOpt = SystemProperties.getInt("persist.sys.bootopt.preload", 0);
+            int firstRun =  SystemProperties.getInt("persist.sys.bootopt.notfirstrun",0);
             Trace.traceBegin(Trace.TRACE_TAG_DALVIK, "ZygotePreload");
             EventLog.writeEvent(LOG_BOOT_PROGRESS_PRELOAD_START,
                 SystemClock.uptimeMillis());
-            preload();
+
+            if (firstRun != 1) {
+                preloadOpt = 0;
+            }
+            if (preloadOpt>0) {
+                preloadOptBeforeSystemServer();
+            } else {
+                preload();
+            }
+
             EventLog.writeEvent(LOG_BOOT_PROGRESS_PRELOAD_END,
                 SystemClock.uptimeMillis());
             Trace.traceEnd(Trace.TRACE_TAG_DALVIK);
@@ -745,6 +788,13 @@ public class ZygoteInit {
 
             if (startSystemServer) {
                 startSystemServer(abiList, socketName);
+            }
+
+            if (preloadOpt>0) {
+                preloadOptAfterSystemServer();
+            }
+            if (firstRun==0) {
+                SystemProperties.set("persist.sys.bootopt.notfirstrun","1");
             }
 
             Log.i(TAG, "Accepting command socket connections");

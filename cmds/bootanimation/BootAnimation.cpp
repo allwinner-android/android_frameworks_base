@@ -54,13 +54,21 @@
 #include <GLES/glext.h>
 #include <EGL/eglext.h>
 
+// for setDataSource
+#include <media/IMediaHTTPService.h>
+#include <binder/IServiceManager.h>
+
 #include "BootAnimation.h"
 #include "AudioPlayer.h"
 
 #define OEM_BOOTANIMATION_FILE "/oem/media/bootanimation.zip"
+#define USER_BOOTANIMATION_FILE "/data/local/bootanimation.zip"
 #define SYSTEM_BOOTANIMATION_FILE "/system/media/bootanimation.zip"
 #define SYSTEM_ENCRYPTED_BOOTANIMATION_FILE "/system/media/bootanimation-encrypted.zip"
 #define EXIT_PROP_NAME "service.bootanim.exit"
+
+#define SYSTEM_BOOTVIDEO_FILE   "/system/media/boot.mp4"
+#define USER_BOOTVIDEO_FILE     "/data/local/boot.mp4"
 
 namespace android {
 
@@ -70,6 +78,13 @@ static const int ANIM_ENTRY_NAME_MAX = 256;
 
 BootAnimation::BootAnimation() : Thread(false), mClockEnabled(true) {
     mSession = new SurfaceComposerClient();
+
+    mVideoPath = NULL;
+    if (access(USER_BOOTVIDEO_FILE, R_OK) == 0) {
+        mVideoPath = USER_BOOTVIDEO_FILE;
+    } else if (access(SYSTEM_BOOTVIDEO_FILE, R_OK) == 0) {
+        mVideoPath = SYSTEM_BOOTVIDEO_FILE;
+    }
 }
 
 BootAnimation::~BootAnimation() {
@@ -224,6 +239,19 @@ status_t BootAnimation::initTexture(const Animation::Frame& frame)
     return NO_ERROR;
 }
 
+static void waitServiceReady()
+{
+    char value[PROPERTY_VALUE_MAX];
+    do {
+        property_get("init.svc.media", value, "0");
+        if (!strcmp(value, "running"))
+            break;
+
+        ALOGD("media not published, waiting...");
+        usleep(100000);
+    } while (true);
+}
+
 status_t BootAnimation::readyToRun() {
     mAssets.addDefaultAssets();
 
@@ -243,6 +271,28 @@ status_t BootAnimation::readyToRun() {
     SurfaceComposerClient::closeGlobalTransaction();
 
     sp<Surface> s = control->getSurface();
+
+    if (mVideoPath != NULL) {
+        mFlingerSurface = s;
+        mFlingerSurfaceControl = control;
+
+        waitServiceReady();
+
+        if (startBootMedia(mVideoPath, true) == 0) {
+            do {
+                usleep(100000);
+                checkExit();
+            } while (!exitPending());
+
+            stopBootMedia();
+
+            mFlingerSurface.clear();
+            mFlingerSurfaceControl.clear();
+            IPCThreadState::self()->stopProcess();
+            return NO_ERROR;
+        }
+    }
+
 
     // initialize opengl and egl
     const EGLint attribs[] = {
@@ -290,6 +340,9 @@ status_t BootAnimation::readyToRun() {
     }
     else if (access(OEM_BOOTANIMATION_FILE, R_OK) == 0) {
         mZipFileName = OEM_BOOTANIMATION_FILE;
+    }
+    else if (access(USER_BOOTANIMATION_FILE, R_OK) == 0) {
+        mZipFileName = USER_BOOTANIMATION_FILE;
     }
     else if (access(SYSTEM_BOOTANIMATION_FILE, R_OK) == 0) {
         mZipFileName = SYSTEM_BOOTANIMATION_FILE;
@@ -824,6 +877,43 @@ BootAnimation::Animation* BootAnimation::loadAnimation(const String8& fn)
     mLoadedFiles.remove(fn);
     return animation;
 }
+
+int BootAnimation::startBootMedia(const char *path, bool looping)
+{
+    if (!path || *path == '\0' || access(path, R_OK))
+        return -1;
+
+    mPlayer = new MediaPlayer();
+    if (mPlayer == NULL) {
+        ALOGE("new MediaPlayer() return NULL");
+        return -1;
+    }
+
+    char url[1024];
+    snprintf(url, sizeof(url), "file://%s", path);
+    if (mPlayer->setDataSource(0, url, 0) ||
+            mPlayer->setVideoSurfaceTexture(mFlingerSurface->getIGraphicBufferProducer()) ||
+            mPlayer->setLooping(looping) ||
+            mPlayer->setVolume(1.0, 1.0) ||
+            mPlayer->prepare() ||
+            mPlayer->start()) {
+        mPlayer->reset();
+        mPlayer.clear();
+        return -1;
+    }
+
+    return 0;
+}
+
+void BootAnimation::stopBootMedia()
+{
+    if (mPlayer != NULL) {
+        mPlayer->stop();
+        mPlayer->reset();
+        mPlayer.clear();
+     }
+}
+
 // ---------------------------------------------------------------------------
 
 }

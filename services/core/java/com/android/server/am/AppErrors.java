@@ -457,9 +457,12 @@ class AppErrors {
                             r.kill("crash", true);
                         }
                     } else {
-                        // Huh.
+                        // Huh. we can't kill systme_server
+			Log.d("Killer","we want kill uid = " + uid + " pid = " + pid);
+			if(uid!=1000){
                         Process.killProcess(pid);
                         ActivityManagerService.killProcessGroup(uid, pid);
+			}
                     }
                 }
                 return true;

@@ -35,6 +35,8 @@ public class IpConfiguration implements Parcelable {
         STATIC,
         /* Use dynamically configured IP settigns */
         DHCP,
+        /* use for pppoe */
+        PPPOE,
         /* no IP details are assigned, this is used to indicate
          * that any existing IP settings should be retained */
         UNASSIGNED

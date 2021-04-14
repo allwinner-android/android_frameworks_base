@@ -140,6 +140,7 @@ import com.android.server.UiThread;
 import com.android.server.Watchdog;
 import com.android.server.input.InputManagerService;
 import com.android.server.policy.PhoneWindowManager;
+import com.android.server.policy.TvWindowManager;
 import com.android.server.power.ShutdownThread;
 
 import java.io.BufferedWriter;
@@ -383,7 +384,7 @@ public class WindowManagerService extends IWindowManager.Stub
 
     final boolean mLimitedAlphaCompositing;
 
-    final WindowManagerPolicy mPolicy = new PhoneWindowManager();
+    final WindowManagerPolicy mPolicy = new TvWindowManager();
 
     final IActivityManager mActivityManager;
     final ActivityManagerInternal mAmInternal;
@@ -3726,7 +3727,7 @@ public class WindowManagerService extends IWindowManager.Stub
     boolean updateOrientationFromAppTokensLocked(boolean inTransaction) {
         long ident = Binder.clearCallingIdentity();
         try {
-            int req = getOrientationLocked();
+            int req = "1".equals(SystemProperties.get("ro.sf.disablerotation","0"))?ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE:getOrientationLocked();
             if (req != mForcedAppOrientation) {
                 mForcedAppOrientation = req;
                 //send a message to Policy indicating orientation change to take
@@ -10078,6 +10079,33 @@ public class WindowManagerService extends IWindowManager.Stub
     @Override
     public boolean isSafeModeEnabled() {
         return mSafeMode;
+    }
+    //support mouse mode
+    public void keyEnterMouseMode()
+    {
+        Log.d(TAG,"keyEnterMouseMode");
+        mInputManager.KeyEnterMouseMode();
+    }
+
+    public void keyExitMouseMode()
+    {
+        Log.d(TAG,"keyExitMouseMode");
+        mInputManager.KeyExitMouseMode();
+    }
+
+    public void keySetMouseMoveCode(int left,int right,int top,int bottom)
+    {
+        mInputManager.KeySetMouseMoveCode(left,right,top,bottom);
+    }
+
+    public void keySetMouseBtnCode(int leftbtn,int midbtn,int rightbtn)
+    {
+        mInputManager.KeySetMouseBtnCode(leftbtn,midbtn,rightbtn);
+    }
+
+    public void keySetMouseDistance(int distance)
+    {
+        mInputManager.KeySetMouseDistance(distance);
     }
 
     @Override

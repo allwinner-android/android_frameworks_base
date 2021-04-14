@@ -253,6 +253,8 @@ import com.android.server.pm.Settings.DatabaseVersion;
 import com.android.server.pm.Settings.VersionInfo;
 import com.android.server.storage.DeviceStorageMonitorInternal;
 
+import com.android.server.pm.util.PackageDataManager;
+
 import dalvik.system.CloseGuard;
 import dalvik.system.DexFile;
 import dalvik.system.VMRuntime;
@@ -1324,6 +1326,14 @@ public class PackageManagerService extends IPackageManager.Stub {
         private static final String USAGE_FILE_MAGIC_VERSION_1 = USAGE_FILE_MAGIC + "1";
     }
 
+    PackageDataManager pManager = null;
+    boolean pManagerPostUpdateTask = false;
+    int laterScanData = 0;
+    Set<String> dataAppScanInBoot = new HashSet<String>();
+    List<String> dataAppScanAfterBoot = null;
+    boolean mDataScaned = false;
+    static final int DATA_SCAN_FINISH= 1000;
+
     class PackageHandler extends Handler {
         private boolean mBound = false;
         final ArrayList<HandlerParams> mPendingInstalls =
@@ -2393,6 +2403,15 @@ public class PackageManagerService extends IPackageManager.Stub {
                 }
             }
 
+            int pmsMode = SystemProperties.getInt("persist.sys.bootopt.pms", 0);
+            if (pmsMode > 0) {
+                long t = SystemClock.uptimeMillis();
+                pManager = PackageDataManager.getInstance(pmsMode);
+                pManager.waitForReadTasksFinish();
+                Slog.i(TAG, "pmanager waitForReadTasksFinish cost :" +
+                    (SystemClock.uptimeMillis() - t));
+            }
+
             File frameworkDir = new File(Environment.getRootDirectory(), "framework");
 
             final VersionInfo ver = mSettings.getInternalVersion();
@@ -2422,6 +2441,7 @@ public class PackageManagerService extends IPackageManager.Stub {
             // (Do this before scanning any apps.)
             // For security and version matching reason, only consider
             // overlay packages if they reside in VENDOR_OVERLAY_DIR.
+            Slog.i(TAG, "scan vendor");
             File vendorOverlayDir = new File(VENDOR_OVERLAY_DIR);
             scanDirTracedLI(vendorOverlayDir, mDefParseFlags
                     | PackageParser.PARSE_IS_SYSTEM
@@ -2429,6 +2449,7 @@ public class PackageManagerService extends IPackageManager.Stub {
                     | PackageParser.PARSE_TRUSTED_OVERLAY, scanFlags | SCAN_TRUSTED_OVERLAY, 0);
 
             // Find base frameworks (resource packages without code).
+            Slog.i(TAG, "scan framework");
             scanDirTracedLI(frameworkDir, mDefParseFlags
                     | PackageParser.PARSE_IS_SYSTEM
                     | PackageParser.PARSE_IS_SYSTEM_DIR
@@ -2436,6 +2457,7 @@ public class PackageManagerService extends IPackageManager.Stub {
                     scanFlags | SCAN_NO_DEX, 0);
 
             // Collected privileged system packages.
+            Slog.i(TAG, "scan system priv-app");
             final File privilegedAppDir = new File(Environment.getRootDirectory(), "priv-app");
             scanDirTracedLI(privilegedAppDir, mDefParseFlags
                     | PackageParser.PARSE_IS_SYSTEM
@@ -2443,11 +2465,13 @@ public class PackageManagerService extends IPackageManager.Stub {
                     | PackageParser.PARSE_IS_PRIVILEGED, scanFlags, 0);
 
             // Collect ordinary system packages.
+            Slog.i(TAG, "scan system app");
             final File systemAppDir = new File(Environment.getRootDirectory(), "app");
             scanDirTracedLI(systemAppDir, mDefParseFlags
                     | PackageParser.PARSE_IS_SYSTEM
                     | PackageParser.PARSE_IS_SYSTEM_DIR, scanFlags, 0);
 
+            Slog.i(TAG, "scan data app");
             // Collect all vendor packages.
             File vendorAppDir = new File("/vendor/app");
             try {
@@ -6072,6 +6096,22 @@ public class PackageManagerService extends IPackageManager.Stub {
 
     private @NonNull List<ResolveInfo> queryIntentReceiversInternal(Intent intent,
             String resolvedType, int flags, int userId) {
+        if (pManager != null && (!pManagerPostUpdateTask) && Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) {
+            pManagerPostUpdateTask = true;
+            mHandler.postDelayed(new Runnable() {
+                public void run() {
+                    Slog.i(TAG, "try update pmanager ");
+                    if (pManager.updateData(mMetrics)) {
+                        Slog.i(TAG, "finish update pmanager database");
+                        return;
+                    }
+                    Slog.i(TAG, "post update pmanager later");
+                    mHandler.postDelayed(this, 3*1000);
+               }
+               }, 3*1000);
+        }
+
+
         if (!sUserManager.exists(userId)) return Collections.emptyList();
         flags = updateFlagsForResolve(flags, userId, intent);
         ComponentName comp = intent.getComponent();
@@ -6812,24 +6852,34 @@ public class PackageManagerService extends IPackageManager.Stub {
     private PackageParser.Package scanPackageLI(File scanFile, int parseFlags, int scanFlags,
             long currentTime, UserHandle user) throws PackageManagerException {
         if (DEBUG_INSTALL) Slog.d(TAG, "Parsing: " + scanFile);
-        PackageParser pp = new PackageParser();
-        pp.setSeparateProcesses(mSeparateProcesses);
-        pp.setOnlyCoreApps(mOnlyCore);
-        pp.setDisplayMetrics(mMetrics);
-
-        if ((scanFlags & SCAN_TRUSTED_OVERLAY) != 0) {
-            parseFlags |= PackageParser.PARSE_TRUSTED_OVERLAY;
+        PackageParser.Package pkg2 = null;
+        if (pManager != null) {
+            pkg2 = pManager.getPkgParserData(scanFile.getPath());
         }
+        if (pkg2 == null) {
+            Trace.traceBegin(TRACE_TAG_PACKAGE_MANAGER, "parsePackage");
+            Slog.i(TAG, "scan normal " + scanFile.toString());
+            try {
+                PackageParser pp = new PackageParser();
+                if ((scanFlags & SCAN_TRUSTED_OVERLAY) != 0) {
+                    parseFlags |= PackageParser.PARSE_TRUSTED_OVERLAY;
+                }
+                pp.setSeparateProcesses(mSeparateProcesses);
+                pp.setOnlyCoreApps(mOnlyCore);
+                pp.setDisplayMetrics(mMetrics);
+                pkg2 = pp.parsePackage(scanFile, parseFlags);
+            } catch (PackageParserException e) {
+                throw PackageManagerException.from(e);
+            } finally {
+                Trace.traceEnd(TRACE_TAG_PACKAGE_MANAGER);
+            }
 
-        Trace.traceBegin(TRACE_TAG_PACKAGE_MANAGER, "parsePackage");
-        final PackageParser.Package pkg;
-        try {
-            pkg = pp.parsePackage(scanFile, parseFlags);
-        } catch (PackageParserException e) {
-            throw PackageManagerException.from(e);
-        } finally {
-            Trace.traceEnd(TRACE_TAG_PACKAGE_MANAGER);
+            if (pManager != null)
+                pManager.addPkgParserData(pkg2);
+        } else {
+            Slog.i(TAG, "scan quick " + scanFile.toString());
         }
+        final PackageParser.Package pkg = pkg2;
 
         return scanPackageLI(pkg, scanFile, parseFlags, scanFlags, currentTime, user);
     }
@@ -7935,8 +7985,10 @@ public class PackageManagerService extends IPackageManager.Stub {
             int scanFlags, long currentTime, UserHandle user) throws PackageManagerException {
         boolean success = false;
         try {
+            long t = SystemClock.uptimeMillis();
             final PackageParser.Package res = scanPackageDirtyLI(pkg, policyFlags, scanFlags,
                     currentTime, user);
+            Slog.i(TAG,"scan dirty "+pkg.packageName+" cost:"+(SystemClock.uptimeMillis()-t));
             success = true;
             return res;
         } finally {

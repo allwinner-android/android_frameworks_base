@@ -38,6 +38,8 @@ import android.media.session.ParcelableVolumeInfo;
 import android.media.session.PlaybackState;
 import android.media.AudioAttributes;
 import android.net.Uri;
+import android.os.UserHandle;
+import android.os.SystemProperties;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.DeadObjectException;
@@ -90,6 +92,7 @@ public class MediaSessionRecord implements IBinder.DeathRecipient {
     private final SessionStub mSession;
     private final SessionCb mSessionCb;
     private final MediaSessionService mService;
+    private final boolean mUseMasterVolume;
 
     private final Object mLock = new Object();
     private final ArrayList<ISessionControllerCallback> mControllerCallbacks =
@@ -142,6 +145,10 @@ public class MediaSessionRecord implements IBinder.DeathRecipient {
         mAudioManager = (AudioManager) service.getContext().getSystemService(Context.AUDIO_SERVICE);
         mAudioManagerInternal = LocalServices.getService(AudioManagerInternal.class);
         mAudioAttrs = new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).build();
+        if((SystemProperties.get("media.stagefright.mode","true")).equals("true"))
+            mUseMasterVolume = true;
+        else
+            mUseMasterVolume = false;
     }
 
     /**
@@ -245,8 +252,27 @@ public class MediaSessionRecord implements IBinder.DeathRecipient {
         if (isPlaybackActive(false) || hasFlag(MediaSession.FLAG_EXCLUSIVE_GLOBAL_PRIORITY)) {
             flags &= ~AudioManager.FLAG_PLAY_SOUND;
         }
+        boolean isMute = direction == AudioManager.ADJUST_TOGGLE_MUTE;
+        int userId = UserHandle.getCallingUserId();
         if (mVolumeType == PlaybackInfo.PLAYBACK_TYPE_LOCAL) {
-            // Adjust the volume with a handler not to be blocked by other system service.
+            if (mUseMasterVolume) {
+                // If this device only uses master volume and playback is local
+                // just adjust the master volume and return.
+                boolean isMasterMute = mAudioManager.isMasterMute();
+                if (isMute) {
+                    mAudioManagerInternal.setMasterMuteForUid(!isMasterMute,
+                            flags, packageName, userId, uid);
+                } else {
+                    mAudioManagerInternal.adjustMasterVolumeForUid(direction, flags, packageName,
+                            uid);
+                    if (isMasterMute) {
+                        mAudioManagerInternal.setMasterMuteForUid(false,
+                                flags, packageName, userId, uid);
+                    }
+                }
+                return;
+            }
+			// Adjust the volume with a handler not to be blocked by other system service.
             int stream = AudioAttributes.toLegacyStreamType(mAudioAttrs);
             postAdjustLocalVolume(stream, direction, flags, packageName, uid, useSuggested,
                     previousFlagPlaySound);

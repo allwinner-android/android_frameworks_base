@@ -659,6 +659,12 @@ public class MediaPlayer extends PlayerBase
     private static final int INVOKE_ID_SET_VIDEO_SCALE_MODE = 6;
     private static final int INVOKE_ID_GET_SELECTED_TRACK = 7;
 
+    private static final int INVOKE_ID_SET_3D_MODE = 128;
+    private static final int INVOKE_ID_GET_3D_MODE = 129;
+    private static final int INVOKE_ID_GET_CONTENT_ID = 1000;
+    private static final int INVOKE_ID_GET_BITRATE = 1002;
+    private static final int INVOKE_ID_GET_CACHEBYTES = 1003;
+
     /**
      * Create a request parcel which can be routed to the native media
      * player using {@link #invoke(Parcel, Parcel)}. The Parcel
@@ -2002,6 +2008,20 @@ public class MediaPlayer extends PlayerBase
                 mFormat.setInteger(MediaFormat.KEY_IS_DEFAULT, in.readInt());
                 mFormat.setInteger(MediaFormat.KEY_IS_FORCED_SUBTITLE, in.readInt());
             }
+            /*
+            else if (mTrackType == MEDIA_TRACK_TYPE_TIMEDTEXT) {
+                int codecFormat = in.readInt();
+                int isExternal = in.readInt();
+            } else if (mTrackType == MEDIA_TRACK_TYPE_AUDIO) {
+                int channel = in.readInt();
+                int sampleRate = in.readInt();
+                int bitRate = in.readInt();
+                int codec = in.readInt();
+            } else if (mTrackType == MEDIA_TRACK_TYPE_VIDEO) {
+                int is3D = in.readInt();
+                int codec = in.readInt();
+            }
+            */
         }
 
         /** @hide */
@@ -2157,6 +2177,19 @@ public class MediaPlayer extends PlayerBase
      */
     public static final String MEDIA_MIMETYPE_TEXT_CEA_708 = "text/cea-708";
 
+    /*Allwinner BEGIN add by zhaozhili*/
+    public static final String[] MEDIA_MIMETYPE = new String[] {
+        "application/idx-sub",
+        "application/sub",
+        "application/x-subrip", "text/sami", "text/rt", "text/txt",
+        "text/ssa", "text/aqt", "text/jss", "text/js", "text/ass",
+        "text/vsf", "text/tts", "text/stl", "text/zeg", "text/ovr",
+        "text/dks", "text/lrc", "text/pan", "text/sbt", "text/vkt",
+        "text/pjs", "text/mpl", "text/scr", "text/psb", "text/asc",
+        "text/rtf", "text/s2k", "text/sst", "text/son", "text/ssts",
+        "text/smi", "text/rip", "text/matroska-tt-ssa", "text/matroska-tt-vobsub"};
+    /*Allwinner END add by zhaozhili*/
+
     /*
      * A helper function to check if the mime type is supported by media framework.
      */
@@ -2164,6 +2197,13 @@ public class MediaPlayer extends PlayerBase
         if (MEDIA_MIMETYPE_TEXT_SUBRIP.equals(mimeType)) {
             return true;
         }
+        /*Allwinner BEGIN add by zhaozhili*/
+        for(String type : MEDIA_MIMETYPE) {
+            if (type.equals(mimeType)) {
+                return true;
+            }
+        }
+        /*Allwinner END add by zhaozhili*/
         return false;
     }
 
@@ -2491,6 +2531,25 @@ public class MediaPlayer extends PlayerBase
             throw new IllegalArgumentException("Illegal mimeType for timed text source: " + mime);
         }
 
+        /*Allwinner BEGIN add by zhaozhili*/
+        boolean using_native_subtile_decoder = true;
+        if (using_native_subtile_decoder) {
+            Parcel request = Parcel.obtain();
+            Parcel reply = Parcel.obtain();
+            try {
+                request.writeInterfaceToken(IMEDIA_PLAYER);
+                request.writeInt(INVOKE_ID_ADD_EXTERNAL_SOURCE_FD);
+                request.writeFileDescriptor(fd);
+                request.writeLong(offset);
+                request.writeLong(length);
+                request.writeString(mime);
+                invoke(request, reply);
+            } finally {
+                request.recycle();
+                reply.recycle();
+            }
+        } else {
+        /*Allwinner END add by zhaozhili*/
         FileDescriptor fd2;
         try {
             fd2 = Libcore.os.dup(fd);
@@ -2575,6 +2634,10 @@ public class MediaPlayer extends PlayerBase
                 thread.getLooper().quitSafely();
             }
         });
+
+        /*Allwinner BEGIN add by zhaozhili*/
+        } // using_native_subtile_decoder = false
+        /*Allwinner END add by zhaozhili*/
     }
 
     /**

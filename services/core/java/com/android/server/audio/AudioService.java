@@ -196,6 +196,7 @@ public class AudioService extends IAudioService.Stub {
 
     // AudioHandler messages
     private static final int MSG_SET_DEVICE_VOLUME = 0;
+	private static final int MSG_PERSIST_MASTER_VOLUME = 2;
     private static final int MSG_PERSIST_VOLUME = 1;
     private static final int MSG_PERSIST_RINGER_MODE = 3;
     private static final int MSG_AUDIO_SERVER_DIED = 4;
@@ -249,6 +250,14 @@ public class AudioService extends IAudioService.Stub {
     private SoundPool mSoundPool;
     private final Object mSoundEffectsLock = new Object();
     private static final int NUM_SOUNDPOOL_CHANNELS = 4;
+
+    // Internally master volume is a float in the 0.0 - 1.0 range,
+    // but to support integer based AudioManager API we translate it to 0 - 100
+    private static final int MAX_MASTER_VOLUME = 75;
+
+    // Maximum volume adjust steps allowed in a single batch call.
+    private static final int MAX_BATCH_VOLUME_ADJUST_STEPS = 4;
+
 
     /* Sound effect file names  */
     private static final String SOUND_EFFECTS_PATH = "/media/audio/ui/";
@@ -433,6 +442,8 @@ public class AudioService extends IAudioService.Stub {
 
     // Forced device usage for communications
     private int mForcedUseForComm;
+
+    private final int[] mMasterVolumeRamp;
 
     // List of binder death handlers for setMode() client processes.
     // The last process to have called setMode() is at the top of the list.
@@ -658,6 +669,8 @@ public class AudioService extends IAudioService.Stub {
 
         mUseFixedVolume = mContext.getResources().getBoolean(
                 com.android.internal.R.bool.config_useFixedVolume);
+        mMasterVolumeRamp = mContext.getResources().getIntArray(
+                com.android.internal.R.array.config_masterVolumeRamp);
 
         // must be called before readPersistedSettings() which needs a valid mStreamVolumeAlias[]
         // array initialized by updateStreamVolumeAlias()
@@ -709,12 +722,19 @@ public class AudioService extends IAudioService.Stub {
         mUserManagerInternal.addUserRestrictionsListener(mUserRestrictionsListener);
 
         mRecordMonitor.initMonitor();
+        restoreMasterVolume();
     }
 
     public void systemReady() {
         sendMsg(mAudioHandler, MSG_SYSTEM_READY, SENDMSG_QUEUE,
                 0, 0, null, 0);
     }
+	private boolean isUseMasterVolume(){
+		if(SystemProperties.getBoolean("media.stagefright.mode", false) == true)
+			return false;
+		else
+			return true;
+	}
 
     public void onSystemReady() {
         mSystemReady = true;
@@ -831,6 +851,9 @@ public class AudioService extends IAudioService.Stub {
 
         // Restore ringer mode
         setRingerModeInt(getRingerModeInternal(), false);
+
+		// Restore master volume
+		restoreMasterVolume();
 
         // Reset device orientation (if monitored for this device)
         if (mMonitorOrientation) {
@@ -1161,12 +1184,14 @@ public class AudioService extends IAudioService.Stub {
     /** @see AudioManager#adjustVolume(int, int) */
     public void adjustSuggestedStreamVolume(int direction, int suggestedStreamType, int flags,
             String callingPackage, String caller) {
+            Log.d(TAG,"myprint adjustSuggestedStreamVolume1 direction = " + direction + "suggestedStreamType = " + suggestedStreamType + "flags = " + flags);
         adjustSuggestedStreamVolume(direction, suggestedStreamType, flags, callingPackage,
                 caller, Binder.getCallingUid());
     }
 
     private void adjustSuggestedStreamVolume(int direction, int suggestedStreamType, int flags,
             String callingPackage, String caller, int uid) {
+        Log.d(TAG,"myprint adjustSuggestedStreamVolume2");
         if (DEBUG_VOL) Log.d(TAG, "adjustSuggestedStreamVolume() stream=" + suggestedStreamType
                 + ", flags=" + flags + ", caller=" + caller);
         int streamType;
@@ -1200,12 +1225,14 @@ public class AudioService extends IAudioService.Stub {
     /** @see AudioManager#adjustStreamVolume(int, int, int) */
     public void adjustStreamVolume(int streamType, int direction, int flags,
             String callingPackage) {
+        Log.d(TAG,"myprint adjustStreamVolume1 direction = " + direction + "streamType = " + streamType + "flags = " + flags);
         adjustStreamVolume(streamType, direction, flags, callingPackage, callingPackage,
                 Binder.getCallingUid());
     }
 
     private void adjustStreamVolume(int streamType, int direction, int flags,
             String callingPackage, String caller, int uid) {
+        Log.d(TAG,"myprint adjustStreamVolume2 direction = " + direction + "streamType = " + streamType + "flags = " + flags);
         if (mUseFixedVolume) {
             return;
         }
@@ -1429,6 +1456,28 @@ public class AudioService extends IAudioService.Stub {
             }
         }
     }
+    /** @see AudioManager#adjustMasterVolume(int, int) */
+    public void adjustMasterVolume(int steps, int flags, String callingPackage) {
+        adjustMasterVolume(steps, flags, callingPackage, Binder.getCallingUid());
+    }
+
+    public void adjustMasterVolume(int steps, int flags, String callingPackage, int uid) {
+        if (mUseFixedVolume) {
+            return;
+        }
+        ensureValidSteps(steps);
+        int volume = Math.round(AudioSystem.getMasterVolume() * MAX_MASTER_VOLUME);
+        int delta = 0;
+        int numSteps = Math.abs(steps);
+        int direction = steps > 0 ? AudioManager.ADJUST_RAISE : AudioManager.ADJUST_LOWER;
+        for (int i = 0; i < numSteps; ++i) {
+            delta = findVolumeDelta(direction, volume);
+            volume += delta;
+        }
+
+        //Log.d(TAG, "adjustMasterVolume volume: " + volume + " steps: " + steps);
+        setMasterVolume(volume, flags, callingPackage, uid);
+    }
 
     // StreamVolumeCommand contains the information needed to defer the process of
     // setStreamVolume() in case the user has to acknowledge the safe volume warning message.
@@ -1601,7 +1650,7 @@ public class AudioService extends IAudioService.Stub {
                 index = mStreamStates[streamType].getIndex(device);
             }
         }
-        sendVolumeUpdate(streamType, oldIndex, index, flags);
+        //sendVolumeUpdate(streamType, oldIndex, index, flags);
     }
 
     // No ringer affected streams can be changed in total silence mode except those that
@@ -1667,6 +1716,40 @@ public class AudioService extends IAudioService.Stub {
             }
         }
     }
+    private int findVolumeDelta(int direction, int volume) {
+        int delta = 0;
+        if (direction == AudioManager.ADJUST_RAISE) {
+            if (volume == MAX_MASTER_VOLUME) {
+                return 0;
+            }
+            // This is the default value if we make it to the end
+            delta = mMasterVolumeRamp[1];
+            // If we're raising the volume move down the ramp array until we
+            // find the volume we're above and use that groups delta.
+            for (int i = mMasterVolumeRamp.length - 1; i > 1; i -= 2) {
+                if (volume >= mMasterVolumeRamp[i - 1]) {
+                    delta = mMasterVolumeRamp[i];
+                    break;
+                }
+            }
+        } else if (direction == AudioManager.ADJUST_LOWER){
+            if (volume == 0) {
+                return 0;
+            }
+            int length = mMasterVolumeRamp.length;
+            // This is the default value if we make it to the end
+            delta = -mMasterVolumeRamp[length - 1];
+            // If we're lowering the volume move up the ramp array until we
+            // find the volume we're below and use the group below it's delta
+            for (int i = 2; i < length; i += 2) {
+                if (volume <= mMasterVolumeRamp[i]) {
+                    delta = -mMasterVolumeRamp[i - 1];
+                    break;
+                }
+            }
+        }
+        return delta;
+    }
 
     private void sendBroadcastToAll(Intent intent) {
         intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
@@ -1704,6 +1787,7 @@ public class AudioService extends IAudioService.Stub {
 
     // UI update and Broadcast Intent
     private void sendVolumeUpdate(int streamType, int oldIndex, int index, int flags) {
+    Log.d(TAG,"myprint sendVolumeUpdate oldIndex = " + oldIndex + "streamType = " +  streamType + "index = " + index + "flags = " + flags);
         streamType = mStreamVolumeAlias[streamType];
 
         if (streamType == AudioSystem.STREAM_MUSIC) {
@@ -1726,10 +1810,24 @@ public class AudioService extends IAudioService.Stub {
         return flags;
     }
 
+	// UI update and Broadcast Intent
+    private void sendMasterVolumeUpdate(int flags, int oldVolume, int newVolume) {
+        mVolumeController.postMasterVolumeChanged(updateFlagsForSystemAudio(flags));
+
+        Intent intent = new Intent(AudioManager.MASTER_VOLUME_CHANGED_ACTION);
+        intent.putExtra(AudioManager.EXTRA_PREV_MASTER_VOLUME_VALUE, oldVolume);
+        intent.putExtra(AudioManager.EXTRA_MASTER_VOLUME_VALUE, newVolume);
+        sendBroadcastToAll(intent);
+    }
+
     // UI update and Broadcast Intent
     private void sendMasterMuteUpdate(boolean muted, int flags) {
         mVolumeController.postMasterMuteChanged(updateFlagsForSystemAudio(flags));
         broadcastMasterMuteStatus(muted);
+        Intent intent = new Intent(AudioManager.STREAM_MUTE_CHANGED_ACTION);
+        intent.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE, AudioManager.STREAM_MUSIC);
+        intent.putExtra(AudioManager.EXTRA_STREAM_VOLUME_MUTED, muted);
+        sendBroadcastToAll(intent);
     }
 
     private void broadcastMasterMuteStatus(boolean muted) {
@@ -1940,10 +2038,61 @@ public class AudioService extends IAudioService.Stub {
     public boolean isMasterMute() {
         return AudioSystem.getMasterMute();
     }
-
     public void setMasterMute(boolean mute, int flags, String callingPackage, int userId) {
         setMasterMuteInternal(mute, flags, callingPackage, Binder.getCallingUid(),
                 userId);
+    }
+
+    @Override
+    public void setMasterVolume(int volume, int flags, String callingPackage) {
+        setMasterVolume(volume, flags, callingPackage, Binder.getCallingUid());
+    }
+
+	public void setMasterVolume(int volume, int flags, String callingPackage, int uid) {
+        if (mUseFixedVolume) {
+            return;
+        }
+
+        if (mAppOps.noteOp(AppOpsManager.OP_AUDIO_MASTER_VOLUME, uid, callingPackage)
+                != AppOpsManager.MODE_ALLOWED) {
+            return;
+        }
+
+        if (volume < 0) {
+            volume = 0;
+        } else if (volume > MAX_MASTER_VOLUME) {
+            volume = MAX_MASTER_VOLUME;
+        }
+        doSetMasterVolume((float)volume / MAX_MASTER_VOLUME, flags);
+    }
+
+	private void doSetMasterVolume(float volume, int flags) {
+        // don't allow changing master volume when muted
+        if (!AudioSystem.getMasterMute()) {
+            int oldVolume = getMasterVolume();
+            AudioSystem.setMasterVolume(volume);
+
+            int newVolume = getMasterVolume();
+            if (newVolume != oldVolume) {
+                // Post a persist master volume msg
+                sendMsg(mAudioHandler, MSG_PERSIST_MASTER_VOLUME, SENDMSG_REPLACE,
+                        Math.round(volume * (float)1000.0), 0, null, PERSIST_DELAY);
+                setSystemAudioVolume(oldVolume, newVolume, MAX_MASTER_VOLUME, flags);
+            }
+            // Send the volume update regardless whether there was a change.
+            //sendVolumeUpdate(3,(oldVolume/100 + 5)/10,(newVolume/100 + 5)/10,flags);
+            sendMasterVolumeUpdate(flags, oldVolume, newVolume);
+        }
+    }
+	@Override
+    public int getMasterMaxVolume() {
+        return MAX_MASTER_VOLUME;
+    }
+
+	@Override
+    public int getMasterVolume() {
+        if (isMasterMute()) return 0;
+        return getLastAudibleMasterVolume();
     }
 
     /** @see AudioManager#getStreamVolume(int) */
@@ -1982,6 +2131,11 @@ public class AudioService extends IAudioService.Stub {
         ensureValidStreamType(streamType);
         int device = getDeviceForStream(streamType);
         return (mStreamStates[streamType].getIndex(device) + 5) / 10;
+    }
+
+	/** Get last audible master volume before it was muted. */
+    public int getLastAudibleMasterVolume() {
+        return Math.round(AudioSystem.getMasterVolume() * MAX_MASTER_VOLUME);
     }
 
     /** @see AudioManager#getUiSoundsStreamType()  */
@@ -2181,6 +2335,21 @@ public class AudioService extends IAudioService.Stub {
             broadcastRingerMode(AudioManager.INTERNAL_RINGER_MODE_CHANGED_ACTION, ringerMode);
         }
     }
+
+    private void restoreMasterVolume() {
+        if (mUseFixedVolume) {
+            AudioSystem.setMasterVolume(1.0f);
+            return;
+        }
+        if (isUseMasterVolume()) {
+            float volume = Settings.System.getFloatForUser(mContentResolver,
+                    Settings.System.VOLUME_MASTER, -1.0f, UserHandle.USER_CURRENT);
+            if (volume >= 0.0f) {
+                AudioSystem.setMasterVolume(volume);
+            }
+        }
+    }
+
 
     /** @see AudioManager#shouldVibrate(int) */
     public boolean shouldVibrate(int vibrateType) {
@@ -3550,6 +3719,12 @@ public class AudioService extends IAudioService.Stub {
         }
     }
 
+	private void ensureValidSteps(int steps) {
+        if (Math.abs(steps) > MAX_BATCH_VOLUME_ADJUST_STEPS) {
+            throw new IllegalArgumentException("Bad volume adjust steps " + steps);
+        }
+    }
+
     private void ensureValidStreamType(int streamType) {
         if (streamType < 0 || streamType >= mStreamStates.length) {
             throw new IllegalArgumentException("Bad stream type " + streamType);
@@ -3877,9 +4052,9 @@ public class AudioService extends IAudioService.Stub {
             if (mStreamVolumeAlias[mStreamType] == mStreamType) {
                 EventLogTags.writeStreamDevicesChanged(mStreamType, prevDevices, devices);
             }
-            sendBroadcastToAll(mStreamDevicesChanged
-                    .putExtra(AudioManager.EXTRA_PREV_VOLUME_STREAM_DEVICES, prevDevices)
-                    .putExtra(AudioManager.EXTRA_VOLUME_STREAM_DEVICES, devices));
+            //sendBroadcastToAll(mStreamDevicesChanged
+                    //.putExtra(AudioManager.EXTRA_PREV_VOLUME_STREAM_DEVICES, prevDevices)
+                   // .putExtra(AudioManager.EXTRA_VOLUME_STREAM_DEVICES, devices));
             return devices;
         }
 
@@ -3895,7 +4070,7 @@ public class AudioService extends IAudioService.Stub {
         public void readSettings() {
             synchronized (VolumeStreamState.class) {
                 // force maximum volume on all streams if fixed volume property is set
-                if (mUseFixedVolume) {
+                if (mUseFixedVolume || isUseMasterVolume()) {
                     mIndexMap.put(AudioSystem.DEVICE_OUT_DEFAULT, mIndexMax);
                     return;
                 }
@@ -4067,7 +4242,7 @@ public class AudioService extends IAudioService.Stub {
                 mVolumeChanged.putExtra(AudioManager.EXTRA_PREV_VOLUME_STREAM_VALUE, oldIndex);
                 mVolumeChanged.putExtra(AudioManager.EXTRA_VOLUME_STREAM_TYPE_ALIAS,
                         mStreamVolumeAlias[mStreamType]);
-                sendBroadcastToAll(mVolumeChanged);
+                //sendBroadcastToAll(mVolumeChanged);
             }
             return changed;
         }
@@ -4172,7 +4347,7 @@ public class AudioService extends IAudioService.Stub {
         private int getValidIndex(int index) {
             if (index < mIndexMin) {
                 return mIndexMin;
-            } else if (mUseFixedVolume || index > mIndexMax) {
+            } else if (mUseFixedVolume || isUseMasterVolume() || index > mIndexMax) {
                 return mIndexMax;
             }
 
@@ -4560,6 +4735,15 @@ public class AudioService extends IAudioService.Stub {
                 case MSG_PERSIST_VOLUME:
                     persistVolume((VolumeStreamState) msg.obj, msg.arg1);
                     break;
+				case MSG_PERSIST_MASTER_VOLUME:
+						if (mUseFixedVolume) {
+							return;
+						}
+						Settings.System.putFloatForUser(mContentResolver,
+														Settings.System.VOLUME_MASTER,
+														msg.arg1 / (float)1000.0,
+														UserHandle.USER_CURRENT);
+						break;
 
                 case MSG_PERSIST_RINGER_MODE:
                     // note that the value persisted is the current ringer mode, not the
@@ -6095,6 +6279,7 @@ public class AudioService extends IAudioService.Stub {
         }
 
         public void postVolumeChanged(int streamType, int flags) {
+			Log.d(TAG,"myprint postVolumeChanged streamType = " +  streamType + "flags = " + flags);
             if (mController == null)
                 return;
             try {
@@ -6108,11 +6293,21 @@ public class AudioService extends IAudioService.Stub {
             if (mController == null)
                 return;
             try {
-                mController.masterMuteChanged(flags);
+                mController.volumeChanged(AudioManager.STREAM_MUSIC, flags);
             } catch (RemoteException e) {
                 Log.w(TAG, "Error calling masterMuteChanged", e);
             }
         }
+        public void postMasterVolumeChanged(int flags) {
+            if (mController == null)
+                return;
+            try {
+                mController.volumeChanged(AudioManager.STREAM_MUSIC, flags);
+            } catch (RemoteException e) {
+                Log.w(TAG, "Error calling masterVolumeChanged", e);
+            }
+        }
+
 
         public void setLayoutDirection(int layoutDirection) {
             if (mController == null)
@@ -6172,6 +6367,12 @@ public class AudioService extends IAudioService.Stub {
         }
 
         @Override
+        public void adjustMasterVolumeForUid(int steps, int flags, String callingPackage,
+                int uid) {
+            adjustMasterVolume(steps, flags, callingPackage, uid);
+        }
+
+        @Override
         public int getRingerModeInternal() {
             return AudioService.this.getRingerModeInternal();
         }
@@ -6179,6 +6380,12 @@ public class AudioService extends IAudioService.Stub {
         @Override
         public void setRingerModeInternal(int ringerMode, String caller) {
             AudioService.this.setRingerModeInternal(ringerMode, caller);
+        }
+
+        @Override
+        public void setMasterMuteForUid(boolean state, int flags, String callingPackage, int userId,
+                int uid) {
+            setMasterMuteInternal(state, flags, callingPackage, uid, userId);
         }
 
         @Override

@@ -749,6 +749,19 @@ public class KeyEvent extends InputEvent implements Parcelable {
     public static final int KEYCODE_HELP = 259;
     /** Key code constant: Navigate to previous key.
      * Goes backward by one item in an ordered collection of items. */
+
+    // NOTE: If you add a new keycode here you must also add it to:
+    //  isSystem()
+    //  isWakeKey()
+    //  frameworks/native/include/android/keycodes.h
+    //  frameworks/native/include/input/InputEventLabels.h
+    //  frameworks/base/core/res/res/values/attrs.xml
+    //  emulator?
+    //  LAST_KEYCODE
+
+    /* add by Gary. start {{----------------------------------- */
+    //add for karaok by linjunqian
+
     public static final int KEYCODE_NAVIGATE_PREVIOUS = 260;
     /** Key code constant: Navigate to next key.
      * Advances to the next item in an ordered collection of items. */
@@ -796,6 +809,31 @@ public class KeyEvent extends InputEvent implements Parcelable {
     public static final int KEYCODE_COPY = 278;
     /** Key code constant: Paste key. */
     public static final int KEYCODE_PASTE = 279;
+    /** Key code constant: a shortcut key for mouse */
+    public static final int KEYCODE_MOUSE           = 10009;
+    public static final int KEYCODE_TV_SYSTEM       = 10000;
+    /** Key code constant: a shortcut key for a time dialog */
+    public static final int KEYCODE_GOTO            = 10001;
+    /** Key code constant: a shortcut key for switching subtitles */
+    public static final int KEYCODE_SUBTITLE        = 10002;
+    /** Key code constant: a shortcut key for switching tracks */
+    public static final int KEYCODE_AUDIO           = 10003;
+    /** Key code constant: a shortcut key for zooming video */
+    public static final int KEYCODE_ZOOM            = 10004;
+    /** Key code constant: a shortcut key for favourite */
+    public static final int KEYCODE_FAVOURITE       = 10006;
+    /** Key code constant: a shortcut key for loop */
+    public static final int KEYCODE_LOOP            = 10007;
+    /** Key code constant: a shortcut key for showing or hiding statusbar's expanded view */
+    public static final int KEYCODE_EXPAND          = 10008;
+    /** Key code constant: a shortcut key for movie */
+    public static final int KEYCODE_MOVIE           = 10010;
+    /** Key code constant: a shortcut key for app list */
+    public static final int KEYCODE_APPS            = 10011;
+    /** Key code constant: a shortcut key for the browser app */
+    public static final int KEYCODE_BROWSER         = 10012;
+    /** Key code constant: a shortcut key for the screenshot */
+    public static final int KEYCODE_SCREENSHOT      = 10013;
 
     private static final int LAST_KEYCODE = KEYCODE_PASTE;
 

@@ -1120,6 +1120,7 @@ public abstract class ViewGroup extends View implements ViewParent, ViewManager 
      * @param touchscreenBlocksFocus true to enable blocking focus in the presence of a touchscreen
      */
     public void setTouchscreenBlocksFocus(boolean touchscreenBlocksFocus) {
+        touchscreenBlocksFocus = false;
         if (touchscreenBlocksFocus) {
             mGroupFlags |= FLAG_TOUCHSCREEN_BLOCKS_FOCUS;
             if (hasFocus()) {

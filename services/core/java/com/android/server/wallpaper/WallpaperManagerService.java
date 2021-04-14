@@ -67,6 +67,7 @@ import android.os.RemoteException;
 import android.os.SELinux;
 import android.os.ServiceManager;
 import android.os.SystemClock;
+import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.service.wallpaper.IWallpaperConnection;
@@ -1984,9 +1985,16 @@ public class WallpaperManagerService extends IWallpaperManager.Stub {
         if (wallpaper.width < baseSize) {
             wallpaper.width = baseSize;
         }
-        if (wallpaper.height < baseSize) {
-            wallpaper.height = baseSize;
-        }
+	if(!SystemProperties.getBoolean("media.stagefright.mode",false)){
+		if (wallpaper.height < 1080) {
+           	 wallpaper.height = 1080;
+        	}
+	}else{
+
+        	if (wallpaper.height < baseSize) {
+            	 wallpaper.height = baseSize;
+        	}
+	}
         // and crop, if not previously specified
         if (wallpaper.cropHint.width() <= 0
                 || wallpaper.cropHint.height() <= 0) {

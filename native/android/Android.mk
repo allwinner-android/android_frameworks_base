@@ -18,6 +18,7 @@ LOCAL_SRC_FILES:= \
     sensor.cpp \
     storage_manager.cpp \
     trace.cpp \
+    input_addon.cpp
 
 LOCAL_SHARED_LIBRARIES := \
     liblog \

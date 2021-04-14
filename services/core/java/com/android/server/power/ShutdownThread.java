@@ -60,6 +60,8 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 
+import com.softwinner.Gpio;
+
 public final class ShutdownThread extends Thread {
     // constants
     private static final String TAG = "ShutdownThread";
@@ -88,6 +90,9 @@ public final class ShutdownThread extends Thread {
     private static boolean mRebootHasProgressBar;
     private static String mReason;
 
+	// config led status when shutdown,default to light the standby led.
+    private boolean ledShutdownAllOff = false;
+
     // Provides shutdown assurance in case the system_server is killed
     public static final String SHUTDOWN_ACTION_PROPERTY = "sys.shutdown.requested";
 
@@ -97,6 +102,8 @@ public final class ShutdownThread extends Thread {
 
     // Indicates whether we should stay in safe mode until ro.build.date.utc is newer than this
     public static final String AUDIT_SAFEMODE_PROPERTY = "persist.sys.audit_safemode";
+
+    public static final String SHUTDOWN_FAST_PROPERTY = "sys.shutdown.hdmi";
 
     // static instance of this thread
     private static final ShutdownThread sInstance = new ShutdownThread();
@@ -119,7 +126,17 @@ public final class ShutdownThread extends Thread {
 
     private ShutdownThread() {
     }
-
+    private void ShutdownLeds() {
+		ledShutdownAllOff = mContext.getResources().getBoolean(
+			com.android.internal.R.bool.config_ledShutdownAllOff);
+		if(ledShutdownAllOff == false) {  // standby led : on ; normal led : off
+			Gpio.setNormalLedOn(false);
+			Gpio.setStandbyLedOn(true);
+		} else {			     // all led off
+			Gpio.setNormalLedOn(false);
+			Gpio.setStandbyLedOn(false);
+		}
+	}
     /**
      * Request a clean shutdown, waiting for subsystems to clean up their
      * state etc.  Must be called from a Looper thread in which its UI
@@ -371,6 +388,7 @@ public final class ShutdownThread extends Thread {
         {
             String reason = (mReboot ? "1" : "0") + (mReason != null ? mReason : "");
             SystemProperties.set(SHUTDOWN_ACTION_PROPERTY, reason);
+            SystemProperties.set(SHUTDOWN_FAST_PROPERTY, "1");
         }
 
         /*
@@ -493,7 +511,7 @@ public final class ShutdownThread extends Thread {
             // done yet, trigger it now.
             uncrypt();
         }
-
+        ShutdownLeds();
         rebootOrShutdown(mContext, mReboot, mReason);
     }
 
@@ -518,18 +536,19 @@ public final class ShutdownThread extends Thread {
         final boolean[] done = new boolean[1];
         Thread t = new Thread() {
             public void run() {
-                boolean nfcOff;
+                //boolean nfcOff;
                 boolean bluetoothOff;
-                boolean radioOff;
+                //boolean radioOff;
 
-                final INfcAdapter nfc =
-                        INfcAdapter.Stub.asInterface(ServiceManager.checkService("nfc"));
-                final ITelephony phone =
-                        ITelephony.Stub.asInterface(ServiceManager.checkService("phone"));
+                //final INfcAdapter nfc =
+                //        INfcAdapter.Stub.asInterface(ServiceManager.checkService("nfc"));
+                //final ITelephony phone =
+                //        ITelephony.Stub.asInterface(ServiceManager.checkService("phone"));
                 final IBluetoothManager bluetooth =
                         IBluetoothManager.Stub.asInterface(ServiceManager.checkService(
                                 BluetoothAdapter.BLUETOOTH_MANAGER_SERVICE));
-
+                final BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+                /*
                 try {
                     nfcOff = nfc == null ||
                              nfc.getState() == NfcAdapter.STATE_OFF;
@@ -541,9 +560,10 @@ public final class ShutdownThread extends Thread {
                 Log.e(TAG, "RemoteException during NFC shutdown", ex);
                     nfcOff = true;
                 }
-
+                */
                 try {
                     bluetoothOff = bluetooth == null || !bluetooth.isEnabled();
+                    bluetoothOff = (mBluetoothAdapter == null) || (mBluetoothAdapter.getState() == BluetoothAdapter.STATE_OFF);
                     if (!bluetoothOff) {
                         Log.w(TAG, "Disabling Bluetooth...");
                         bluetooth.disable(false);  // disable but don't persist new state
@@ -552,7 +572,7 @@ public final class ShutdownThread extends Thread {
                     Log.e(TAG, "RemoteException during bluetooth shutdown", ex);
                     bluetoothOff = true;
                 }
-
+                /*
                 try {
                     radioOff = phone == null || !phone.needMobileRadioShutdown();
                     if (!radioOff) {
@@ -563,8 +583,9 @@ public final class ShutdownThread extends Thread {
                     Log.e(TAG, "RemoteException during radio shutdown", ex);
                     radioOff = true;
                 }
-
-                Log.i(TAG, "Waiting for NFC, Bluetooth and Radio...");
+                */
+                //Log.i(TAG, "Waiting for NFC, Bluetooth and Radio...");
+                Log.i(TAG, "Waiting for Bluetooth");
 
                 long delay = endTime - SystemClock.elapsedRealtime();
                 while (delay > 0) {
@@ -578,6 +599,7 @@ public final class ShutdownThread extends Thread {
                     if (!bluetoothOff) {
                         try {
                             bluetoothOff = !bluetooth.isEnabled();
+                            bluetoothOff = (mBluetoothAdapter.getState() == BluetoothAdapter.STATE_OFF);
                         } catch (RemoteException ex) {
                             Log.e(TAG, "RemoteException during bluetooth shutdown", ex);
                             bluetoothOff = true;
@@ -586,6 +608,7 @@ public final class ShutdownThread extends Thread {
                             Log.i(TAG, "Bluetooth turned off.");
                         }
                     }
+                    /*
                     if (!radioOff) {
                         try {
                             radioOff = !phone.needMobileRadioShutdown();
@@ -608,9 +631,11 @@ public final class ShutdownThread extends Thread {
                             Log.i(TAG, "NFC turned off.");
                         }
                     }
-
-                    if (radioOff && bluetoothOff && nfcOff) {
-                        Log.i(TAG, "NFC, Radio and Bluetooth shutdown complete.");
+                    */
+                    //if (radioOff && bluetoothOff && nfcOff) {
+                    if (bluetoothOff) {
+                        //Log.i(TAG, "NFC, Radio and Bluetooth shutdown complete.");
+                        Log.i(TAG, "Bluetooth shutdown complete.");
                         done[0] = true;
                         break;
                     }
@@ -645,7 +670,8 @@ public final class ShutdownThread extends Thread {
             PowerManagerService.lowLevelReboot(reason);
             Log.e(TAG, "Reboot failed, will attempt shutdown instead");
             reason = null;
-        } else if (SHUTDOWN_VIBRATE_MS > 0 && context != null) {
+        }
+        /*else if (SHUTDOWN_VIBRATE_MS > 0 && context != null) {
             // vibrate before shutting down
             Vibrator vibrator = new SystemVibrator(context);
             try {
@@ -661,6 +687,7 @@ public final class ShutdownThread extends Thread {
             } catch (InterruptedException unused) {
             }
         }
+        */
 
         // Shutdown power
         Log.i(TAG, "Performing low-level shutdown...");

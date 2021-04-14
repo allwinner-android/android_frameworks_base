@@ -3435,7 +3435,7 @@ public final class PowerManagerService extends SystemService
             mContext.enforceCallingOrSelfPermission(android.Manifest.permission.REBOOT, null);
             if (PowerManager.REBOOT_RECOVERY.equals(reason)
                     || PowerManager.REBOOT_RECOVERY_UPDATE.equals(reason)) {
-                mContext.enforceCallingOrSelfPermission(android.Manifest.permission.RECOVERY, null);
+                //mContext.enforceCallingOrSelfPermission(android.Manifest.permission.RECOVERY, null);
             }
 
             final long ident = Binder.clearCallingIdentity();

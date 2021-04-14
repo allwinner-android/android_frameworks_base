@@ -846,6 +846,10 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback {
             }
         }
 
+        if(!st.hasPanelItems()){
+            Log.e(TAG,"PanelFeatureState does not have Panel Items, so donot add AtchDlg");
+            return;
+        }
         st.isHandled = false;
 
         WindowManager.LayoutParams lp = new WindowManager.LayoutParams(

@@ -68,4 +68,24 @@ public class WindowManagerImpl implements WindowManager {
     public void requestAppKeyboardShortcuts(
             KeyboardShortcutsReceiver receiver, int deviceId) {
     }
+    //support mouse mode
+    public void keyEnterMouseMode(){
+
+    }
+
+    public void keyExitMouseMode(){
+
+    }
+
+    public void keySetMouseMoveCode(int left,int right,int top,int bottom){
+
+    }
+
+    public void keySetMouseBtnCode(int leftbtn,int midbtn,int rightbtn){
+
+    }
+
+    public void keySetMouseDistance(int distance){
+
+    }
 }

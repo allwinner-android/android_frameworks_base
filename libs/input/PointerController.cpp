@@ -23,6 +23,7 @@
 
 #include "PointerController.h"
 
+#include <utils/CallStack.h>
 #include <cutils/log.h>
 
 #pragma GCC diagnostic push
@@ -64,7 +65,7 @@ PointerController::PointerController(const sp<PointerControllerPolicyInterface>&
     } else {
         ALOGE("Failed to initialize DisplayEventReceiver.");
     }
-
+    unfadeset = 0;
     AutoMutex _l(mLock);
 
     mLocked.animationPending = false;
@@ -233,6 +234,7 @@ void PointerController::unfade(Transition transition) {
 
     // Always reset the inactivity timer.
     resetInactivityTimeoutLocked();
+    unfadeset = 1;
 
     // Start unfading.
     if (transition == TRANSITION_IMMEDIATE) {
@@ -243,6 +245,7 @@ void PointerController::unfade(Transition transition) {
         mLocked.pointerFadeDirection = 1;
         startAnimationLocked();
     }
+    unfadeset = 0;
 }
 
 void PointerController::setPresentation(Presentation presentation) {
@@ -600,7 +603,9 @@ void PointerController::updatePointerLocked() {
 
     if (mLocked.pointerAlpha > 0) {
         mLocked.pointerSprite->setAlpha(mLocked.pointerAlpha);
-        mLocked.pointerSprite->setVisible(true);
+        if(unfadeset>0) {
+            mLocked.pointerSprite->setVisible(true);
+        }
     } else {
         mLocked.pointerSprite->setVisible(false);
     }

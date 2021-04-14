@@ -125,6 +125,7 @@ LOCAL_SRC_FILES += \
 	core/java/android/bluetooth/IBluetoothGatt.aidl \
 	core/java/android/bluetooth/IBluetoothGattCallback.aidl \
 	core/java/android/bluetooth/IBluetoothGattServerCallback.aidl \
+	core/java/android/bluetooth/IBluetoothRtkbt.aidl \
 	core/java/android/content/IClipboard.aidl \
 	core/java/android/content/IContentService.aidl \
 	core/java/android/content/IIntentReceiver.aidl \
@@ -199,6 +200,7 @@ LOCAL_SRC_FILES += \
 	core/java/android/net/IConnectivityManager.aidl \
 	core/java/android/net/IConnectivityMetricsLogger.aidl \
 	core/java/android/net/IEthernetManager.aidl \
+	core/java/android/net/IPppoeManager.aidl \
 	core/java/android/net/IEthernetServiceListener.aidl \
 	core/java/android/net/INetworkManagementEventObserver.aidl \
 	core/java/android/net/INetworkPolicyListener.aidl \
@@ -220,6 +222,7 @@ LOCAL_SRC_FILES += \
 	core/java/android/os/IBatteryPropertiesRegistrar.aidl \
 	core/java/android/os/ICancellationSignal.aidl \
 	core/java/android/os/IDeviceIdleController.aidl \
+        core/java/android/os/IDisplayOutputManager.aidl \
 	core/java/android/os/IHardwarePropertiesManager.aidl \
 	core/java/android/os/IMaintenanceActivityListener.aidl \
 	core/java/android/os/IMessenger.aidl \

@@ -20,7 +20,7 @@
 #include "AudioPlayer.h"
 
 #include <androidfw/ZipFileRO.h>
-#include <tinyalsa/asoundlib.h>
+
 #include <utils/Log.h>
 #include <utils/String8.h>
 
@@ -32,6 +32,29 @@
 // Maximum line length for audio_conf.txt
 // We only accept lines less than this length to avoid overflows using sscanf()
 #define MAX_LINE_LENGTH 1024
+#define AUDIO_MAP_CNT 16
+#define NAME_LEN 20
+#define PATH_LEN 30
+#define WRITE_BUF 4096
+
+//for ahub
+#define HUB "sndahub"
+int output_card = -1;
+
+typedef struct name_map_t
+{
+    char name[NAME_LEN];
+    int card_num;
+    int active;
+    int output_device;
+}name_map;
+
+static name_map audio_name_map[AUDIO_MAP_CNT] =
+{
+    {"sndacx00codec",        -1,        1,  1},
+    {"sndhdmi",              -1,        1,  0},
+    {"sndspdif",             -1,        0, -1},
+};
 
 struct riff_wave_header {
     uint32_t riff_id;
@@ -61,12 +84,45 @@ AudioPlayer::AudioPlayer()
         mDevice(-1),
         mPeriodSize(0),
         mPeriodCount(0),
+        ahub_mixer(NULL),
         mCurrentFile(NULL)
 {
 }
 
 AudioPlayer::~AudioPlayer() {
+    for(int index = 0; index < CARD_NUM; index++)
+    {
+        if(cards[index].pcm)
+        {
+            pcm_close(cards[index].pcm);
+            cards[index].pcm = NULL;
+        }
+        if(cards[index].hub_pcm)
+        {
+            pcm_close(cards[index].hub_pcm);
+            cards[index].hub_pcm = NULL;
+        }
+    }
 }
+static bool setHubRoute(struct mixer* mixer)
+{
+    struct mixer_ctl *ctl;
+    //i2s1->APBIF_TXDIF0
+    ctl = mixer_get_ctl_by_name(mixer, "I2S1 Src Select");
+    mixer_ctl_set_value(ctl, 0, 1);
+    //enble i2s1
+    ctl = mixer_get_ctl_by_name(mixer, "I2S1OUT Switch");
+    mixer_ctl_set_value(ctl, 0, 1);
+
+    //i2s3->APBIF_TXDIF0
+    ctl = mixer_get_ctl_by_name(mixer, "I2S3 Src Select");
+    mixer_ctl_set_value(ctl, 0, 2);
+    //enable i2s3
+    ctl = mixer_get_ctl_by_name(mixer, "I2S3OUT Switch");
+    mixer_ctl_set_value(ctl, 0, 1);
+    return 0;
+}
+
 
 static bool setMixerValue(struct mixer* mixer, const char* name, const char* values)
 {
@@ -114,7 +170,6 @@ static bool setMixerValue(struct mixer* mixer, const char* name, const char* val
                 ALOGE("unsupported mixer type %d for %s", type, name);
                 break;
         }
-
         values = strchr(values, ' ');
     }
 
@@ -140,8 +195,11 @@ static bool setMixerValue(struct mixer* mixer, const char* name, const char* val
 bool AudioPlayer::init(const char* config)
 {
     int tempInt;
+    memset(cards, 0, sizeof(cards));
     struct mixer* mixer = NULL;
     char    name[MAX_LINE_LENGTH];
+    AudioMap  *audiomap = new AudioMap();
+    audiomap->init_audio_map();
 
     for (;;) {
         const char* endl = strstr(config, "\n");
@@ -153,7 +211,7 @@ bool AudioPlayer::init(const char* config)
         }
         const char* l = line.string();
 
-        if (sscanf(l, "card=%d", &tempInt) == 1) {
+            if (sscanf(l, "card=%d", &tempInt) == 1) {
             ALOGD("card=%d", tempInt);
             mCard = tempInt;
 
@@ -185,12 +243,10 @@ bool AudioPlayer::init(const char* config)
     }
 
     mixer_close(mixer);
-
-    if (mCard >= 0 && mDevice >= 0) {
-        return true;
-    }
-
-    return false;
+    audiomap->reinit_card(cards, mPeriodSize, mPeriodCount);
+    delete(audiomap);
+   
+    return true;
 }
 
 void AudioPlayer::playFile(FileMap* fileMap) {
@@ -204,7 +260,6 @@ void AudioPlayer::playFile(FileMap* fileMap) {
 bool AudioPlayer::threadLoop()
 {
     struct pcm_config config;
-    struct pcm *pcm = NULL;
     bool moreChunks = true;
     const struct chunk_fmt* chunkFmt = NULL;
     int bufferSize;
@@ -215,7 +270,7 @@ bool AudioPlayer::threadLoop()
     if (mCurrentFile == NULL) {
         ALOGE("mCurrentFile is NULL");
         return false;
-     }
+    }
 
     wavData = (const uint8_t *)mCurrentFile->getDataPtr();
     if (!wavData) {
@@ -265,7 +320,6 @@ bool AudioPlayer::threadLoop()
         goto exit;
     }
 
-
     memset(&config, 0, sizeof(config));
     config.channels = chunkFmt->num_channels;
     config.rate = chunkFmt->sample_rate;
@@ -279,35 +333,154 @@ bool AudioPlayer::threadLoop()
         goto exit;
     }
     config.format = PCM_FORMAT_S16_LE;
-
-    pcm = pcm_open(mCard, mDevice, PCM_OUT, &config);
-    if (!pcm || !pcm_is_ready(pcm)) {
-        ALOGE("Unable to open PCM device (%s)\n", pcm_get_error(pcm));
-        goto exit;
+    //open ahub(output_card) mixer
+    ahub_mixer = mixer_open(output_card);
+    //set route
+    setHubRoute(ahub_mixer);
+    //open ahub
+    for(int index = 0; index < CARD_NUM; index++)
+    {
+        if(1 == cards[index].active)
+        {
+            //if 0(hdmi) 4(cvbs) is active then card[0], card[4] is active
+            cards[index].hub_pcm = pcm_open(output_card, cards[index].output_device, PCM_OUT, &config);
+            if (!cards[index].hub_pcm || !pcm_is_ready(cards[index].hub_pcm))
+            {
+                ALOGE("Unable to open PCM device (%s)\n", pcm_get_error(cards[index].hub_pcm));
+                goto exit;
+            }
+            bufferSize = pcm_frames_to_bytes(cards[index].hub_pcm, pcm_get_buffer_size(cards[index].hub_pcm));
+        }
     }
 
-    bufferSize = pcm_frames_to_bytes(pcm, pcm_get_buffer_size(pcm));
+    //open ordinay cards
+    for(int index = 0; index < CARD_NUM; index++)
+    {
+        if(1 == cards[index].active)
+        {
+            //if 0(hdmi) 4(cvbs) is active then card[0], card[4] is active
+            cards[index].pcm = pcm_open(index, mDevice, PCM_OUT, &config);
+            if (!cards[index].pcm || !pcm_is_ready(cards[index].pcm))
+            {
+                ALOGE("Unable to open PCM device (%s)\n", pcm_get_error(cards[index].pcm));
+                goto exit;
+            }
+            pcm_prepare(cards[index].pcm);
+            bufferSize = pcm_frames_to_bytes(cards[index].pcm, pcm_get_buffer_size(cards[index].pcm));
+        }
+    }
+    #if 0
+    cards[0].hub_pcm = pcm_open(0, 0, PCM_OUT, &config);
+    if(cards[0].hub_pcm == NULL)
+    else
+    cards[0].pcm = pcm_open(1, 0, PCM_OUT, &config);
+    //pcm_prepare(cards[0].pcm);
+    #endif
 
     while (wavLength > 0) {
         if (exitPending()) goto exit;
-        size_t count = bufferSize;
+        size_t count = WRITE_BUF;
         if (count > wavLength)
             count = wavLength;
 
-        if (pcm_write(pcm, wavData, count)) {
-            ALOGE("pcm_write failed (%s)", pcm_get_error(pcm));
-            goto exit;
+        /* write card */
+        for(int index = 0; index < CARD_NUM; index++)
+        {
+            if(1 == cards[index].active)
+            {
+                if(pcm_write(cards[index].hub_pcm, wavData, count))
+                {
+                    ALOGE("pcm_write failed (%s)", pcm_get_error(cards[index].hub_pcm));
+                    goto exit;
+                }
+            }
         }
         wavData += count;
         wavLength -= count;
     }
 
 exit:
-    if (pcm)
-        pcm_close(pcm);
+    /* close card */
+    for(int index = 0; index < CARD_NUM; index++)
+    {
+        if(cards[index].pcm)
+        {
+            pcm_close(cards[index].pcm);
+            cards[index].pcm = NULL;
+        }
+        if(cards[index].hub_pcm)
+        {
+            pcm_close(cards[index].hub_pcm);
+            cards[index].hub_pcm = NULL;
+        }
+    }
     delete mCurrentFile;
     mCurrentFile = NULL;
     return false;
 }
 
+
+AudioMap::AudioMap()
+{}
+AudioMap::~AudioMap()
+{}
+
+int AudioMap::init_audio_map()
+{
+    char path[PATH_LEN] = {0};
+    char name[NAME_LEN] = {0};
+    int index = 0;
+    int ret = -1;
+    int fd = -1;
+    for(; index < AUDIO_MAP_CNT; index++)
+    {
+        memset(path, 0, PATH_LEN);
+        memset(name, 0, NAME_LEN);
+        sprintf(path, "/proc/asound/card%d/id", index);
+
+        fd = open(path, O_RDONLY, 0);
+        if(fd < 0)
+        {return -1;}
+
+        ret = read(fd, name, NAME_LEN);
+        if(ret < 0)
+        {return -2;};
+
+        int innerindex = 0;
+        for(; innerindex < AUDIO_MAP_CNT; innerindex++)
+        {
+            //search for hub card num
+            if(strncmp(HUB, name, strlen(HUB)) == 0)
+            {
+                output_card = index;
+            }
+            //search for ordinary card num
+            if((strlen(audio_name_map[innerindex].name) != 0)
+                    && (strncmp(audio_name_map[innerindex].name, name, strlen(audio_name_map[innerindex].name)) == 0))
+            {
+                audio_name_map[innerindex].card_num = index;
+            }
+            else
+            {}
+        }
+        close(fd);
+    }
+    return 1;
+}
+int AudioMap::reinit_card(struct active_pcm (&cards)[32], int periodsize, int periodcount)
+{
+    int index = 0;
+    for(; index < AUDIO_MAP_CNT; index++    )
+    {
+        if(audio_name_map[index].active == 1)
+        {
+            int card_num = audio_name_map[index].card_num;
+            cards[card_num].active = 1;
+            cards[card_num].periodsize = periodsize;
+            cards[card_num].periodcount = periodcount;
+            cards[card_num].output_device= audio_name_map[index].output_device;
+        }
+    }
+    return 1;
+}
 } // namespace android

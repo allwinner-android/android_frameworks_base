@@ -89,7 +89,7 @@ LOCAL_SRC_FILES:= \
     android_os_Trace.cpp \
     android_os_UEventObserver.cpp \
     android_net_LocalSocketImpl.cpp \
-    android_net_NetUtils.cpp \
+    android_net_NetUtils.cpp  \
     android_net_TrafficStats.cpp \
     android_nio_utils.cpp \
     android_util_AssetManager.cpp \

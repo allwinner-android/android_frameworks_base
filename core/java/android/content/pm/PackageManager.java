@@ -2155,6 +2155,15 @@ public abstract class PackageManager {
     @SdkConstant(SdkConstantType.FEATURE)
     public static final String FEATURE_ETHERNET = "android.hardware.ethernet";
 
+/**
+     * Feature for {@link #getSystemAvailableFeatures} and
+     * {@link #hasSystemFeature}: This device supports pppoe.
+     */
+    /* add by zhaokai for pppoe,2016.10.27 */
+    @SdkConstant(SdkConstantType.FEATURE)
+    public static final String FEATURE_PPPOE = "android.software.pppoe";
+
+
     /**
      * Feature for {@link #getSystemAvailableFeatures} and
      * {@link #hasSystemFeature}: This device supports HDMI-CEC.

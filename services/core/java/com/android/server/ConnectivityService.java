@@ -165,6 +165,8 @@ import java.util.Objects;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
+import com.softwinner.Gpio;
+
 /**
  * @hide
  */
@@ -644,6 +646,24 @@ public class ConnectivityService extends IConnectivityManager.Stub
                 new Binder(), NetworkRequestType.REQUEST);
         mNetworkRequests.put(mDefaultRequest, defaultNRI);
         mNetworkRequestInfoLogs.log("REGISTER " + defaultNRI);
+
+        mWifiRequest = createInternetRequestForTransport(
+                NetworkCapabilities.TRANSPORT_WIFI);
+        NetworkRequestInfo wifiNRI = new NetworkRequestInfo(null, mWifiRequest,
+                new Binder(), NetworkRequestType.REQUEST);
+        mNetworkRequests.put(mWifiRequest, wifiNRI);
+
+        mEthernetRequest = createInternetRequestForTransport(
+                NetworkCapabilities.TRANSPORT_ETHERNET);
+        NetworkRequestInfo ethernetNRI = new NetworkRequestInfo(null, mEthernetRequest,
+                new Binder(), NetworkRequestType.REQUEST);
+        mNetworkRequests.put(mEthernetRequest, ethernetNRI);
+
+        mPppoeRequest = createInternetRequestForTransport(
+                NetworkCapabilities.TRANSPORT_PPPOE);
+        NetworkRequestInfo pppoeNRI = new NetworkRequestInfo(null, mPppoeRequest,
+                new Binder(), NetworkRequestType.REQUEST);
+        mNetworkRequests.put(mPppoeRequest, pppoeNRI);
 
         mDefaultMobileDataRequest = createInternetRequestForTransport(
                 NetworkCapabilities.TRANSPORT_CELLULAR);
@@ -4207,7 +4227,9 @@ public class ConnectivityService extends IConnectivityManager.Stub
 
     // Note: if mDefaultRequest is changed, NetworkMonitor needs to be updated.
     private final NetworkRequest mDefaultRequest;
-
+    private final NetworkRequest mWifiRequest;
+    private final NetworkRequest mEthernetRequest;
+    private final NetworkRequest mPppoeRequest;
     // Request used to optionally keep mobile data active even when higher
     // priority networks like Wi-Fi are active.
     private final NetworkRequest mDefaultMobileDataRequest;
@@ -5037,7 +5059,9 @@ public class ConnectivityService extends IConnectivityManager.Stub
         if (state != DetailedState.DISCONNECTED) {
             info.setDetailedState(state, null, info.getExtraInfo());
             sendConnectedBroadcast(info);
+            Gpio.setNetworkLedOn(true);
         } else {
+            Gpio.setNetworkLedOn(false);
             info.setDetailedState(state, info.getReason(), info.getExtraInfo());
             Intent intent = new Intent(ConnectivityManager.CONNECTIVITY_ACTION);
             intent.putExtra(ConnectivityManager.EXTRA_NETWORK_INFO, info);

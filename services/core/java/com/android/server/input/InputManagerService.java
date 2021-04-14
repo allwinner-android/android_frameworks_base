@@ -77,6 +77,7 @@ import android.provider.Settings;
 import android.provider.Settings.SettingNotFoundException;
 import android.text.TextUtils;
 import android.util.Slog;
+import android.util.Log;
 import android.util.SparseArray;
 import android.util.Xml;
 import android.view.IInputFilter;
@@ -222,6 +223,12 @@ public class InputManagerService extends IInputManager.Stub
     private static native void nativeSetPointerIconType(long ptr, int iconId);
     private static native void nativeReloadPointerIcons(long ptr);
     private static native void nativeSetCustomPointerIcon(long ptr, PointerIcon icon);
+    //support mouse mode
+    private static native void nativeKeyEnterMouseMode(long ptr);
+    private static native void nativeKeyExitMouseMode(long ptr);
+    private static native void nativeKeySetMouseDistance(long ptr,int distance);
+    private static native void nativeKeySetMouseMoveCode(long ptr,int left,int right,int top,int bottom);
+    private static native void nativeKeySetMouseBtnCode(long ptr,int leftbtn,int midbtn,int rightbtn);
 
     // Input event injection constants defined in InputDispatcher.h.
     private static final int INPUT_EVENT_INJECTION_SUCCEEDED = 0;
@@ -1582,6 +1589,32 @@ public class InputManagerService extends IInputManager.Stub
     public void updateShowTouchesFromSettings() {
         int setting = getShowTouchesSetting(0);
         nativeSetShowTouches(mPtr, setting != 0);
+    }
+    public void KeyEnterMouseMode()
+    {
+        Log.d(TAG,"KeyEnterMouseMode");
+        nativeKeyEnterMouseMode(mPtr);
+    }
+
+    public void KeyExitMouseMode()
+    {
+        Log.d(TAG,"KeyExitMouseMode");
+        nativeKeyExitMouseMode(mPtr);
+    }
+
+    public void KeySetMouseDistance(int distance)
+    {
+        nativeKeySetMouseDistance(mPtr,distance);
+    }
+
+    public void KeySetMouseMoveCode(int left,int right,int top,int bottom)
+    {
+        nativeKeySetMouseMoveCode(mPtr,left,right,top,bottom);
+    }
+
+    public void KeySetMouseBtnCode(int leftbtn,int midbtn,int rightbtn)
+    {
+        nativeKeySetMouseBtnCode(mPtr,leftbtn,midbtn,rightbtn);
     }
 
     private void registerShowTouchesSettingObserver() {

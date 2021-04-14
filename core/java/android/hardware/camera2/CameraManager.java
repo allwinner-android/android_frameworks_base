@@ -650,6 +650,14 @@ public final class CameraManager {
      * <p>In case of errors connecting to the camera service, will return an empty list.</p>
      */
     private ArrayList<String> getOrCreateDeviceIdListLocked() throws CameraAccessException {
+
+       //add by zhengjiangwei to support Android N Camera hot plug...
+       if(mDeviceIdList  !=null)
+       {
+           mDeviceIdList  = null;
+       }
+
+
         if (mDeviceIdList == null) {
             int numCameras = 0;
             ICameraService cameraService = CameraManagerGlobal.get().getCameraService();

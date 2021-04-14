@@ -236,7 +236,7 @@ public class NetworkAgentInfo implements Comparable<NetworkAgentInfo> {
         // ConnectivityService.updateCapabilities() to compute the old score prior to updating
         // networkCapabilities (with a potentially different validated state).
         if (!networkCapabilities.hasCapability(NET_CAPABILITY_VALIDATED) && !pretendValidated) {
-            score -= UNVALIDATED_SCORE_PENALTY;
+            //score -= UNVALIDATED_SCORE_PENALTY;
         }
         if (score < 0) score = 0;
         return score;

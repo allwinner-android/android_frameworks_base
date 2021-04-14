@@ -357,7 +357,7 @@ final class WiredAccessoryManager implements WiredAccessoryCallbacks {
             List<UEventInfo> retVal = new ArrayList<UEventInfo>();
             UEventInfo uei;
 
-            // Monitor h2w
+/*            // Monitor h2w
             if (!mUseDevInputEventForAudioJack) {
                 uei = new UEventInfo(NAME_H2W, BIT_HEADSET, BIT_HEADSET_NO_MIC, BIT_LINEOUT);
                 if (uei.checkSwitchExists()) {
@@ -394,7 +394,7 @@ final class WiredAccessoryManager implements WiredAccessoryCallbacks {
                     Slog.w(TAG, "This kernel does not have HDMI audio support");
                 }
             }
-
+*/
             return retVal;
         }
 

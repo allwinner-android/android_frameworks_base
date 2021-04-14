@@ -47,6 +47,9 @@ import android.util.DisplayMetrics;
 import android.util.EventLog;
 import android.util.Slog;
 import android.view.WindowManager;
+import android.app.PackageInstallObserver;
+import android.content.pm.VerificationParams;
+import android.net.Uri;
 
 import com.android.internal.R;
 import com.android.internal.os.BinderInternal;
@@ -61,6 +64,7 @@ import com.android.server.clipboard.ClipboardService;
 import com.android.server.connectivity.MetricsLoggerService;
 import com.android.server.devicepolicy.DevicePolicyManagerService;
 import com.android.server.display.DisplayManagerService;
+import com.android.server.DisplayOutputManagerService;
 import com.android.server.dreams.DreamManagerService;
 import com.android.server.fingerprint.FingerprintService;
 import com.android.server.hdmi.HdmiControlService;
@@ -94,6 +98,7 @@ import com.android.server.tv.TvRemoteService;
 import com.android.server.tv.TvInputManagerService;
 import com.android.server.twilight.TwilightService;
 import com.android.server.usage.UsageStatsService;
+import com.android.server.usb.UsbCameraDeviceManagerObserver;
 import com.android.server.vr.VrManagerService;
 import com.android.server.webkit.WebViewUpdateService;
 import com.android.server.wm.WindowManagerService;
@@ -106,6 +111,7 @@ import java.util.Locale;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import com.android.server.pm.util.PackageDataManager;
 public final class SystemServer {
     private static final String TAG = "SystemServer";
 
@@ -160,6 +166,10 @@ public final class SystemServer {
             "com.android.server.content.ContentService$Lifecycle";
     private static final String WALLPAPER_SERVICE_CLASS =
             "com.android.server.wallpaper.WallpaperManagerService$Lifecycle";
+
+    /*add by zhaokai for pppoe,2016.10.27*/
+    private static final String PPPOE_SERVICE_CLASS =
+            "com.android.server.pppoe.PppoeService";
 
     private static final String PERSISTENT_DATA_BLOCK_PROP = "ro.frp.pst";
 
@@ -216,6 +226,9 @@ public final class SystemServer {
 
     private void run() {
         try {
+            android.os.Process.setThreadPriority(
+                android.os.Process.THREAD_PRIORITY_URGENT_AUDIO);
+
             Trace.traceBegin(Trace.TRACE_TAG_SYSTEM_SERVER, "InitBeforeStartServices");
             // If a device's clock is before 1970 (before 0), a lot of
             // APIs crash dealing with negative numbers, notably
@@ -294,8 +307,6 @@ public final class SystemServer {
             BinderInternal.setMaxThreads(sMaxBinderThreads);
 
             // Prepare the main looper thread (this thread).
-            android.os.Process.setThreadPriority(
-                android.os.Process.THREAD_PRIORITY_FOREGROUND);
             android.os.Process.setCanSelfBackground(false);
             Looper.prepareMainLooper();
 
@@ -312,6 +323,16 @@ public final class SystemServer {
             // Create the system service manager.
             mSystemServiceManager = new SystemServiceManager(mSystemContext);
             LocalServices.addService(SystemServiceManager.class, mSystemServiceManager);
+
+            int pmsMode = SystemProperties.getInt("persist.sys.bootopt.pms", 0);
+            Slog.i(TAG, "read pmsmode :"+ pmsMode);
+            if (pmsMode > 0) {
+                long t = SystemClock.uptimeMillis();
+                PackageDataManager pManager = PackageDataManager.getInstance(pmsMode);
+                pManager.readData();
+                Slog.i(TAG, "read pmanager cost :"+ (SystemClock.uptimeMillis()-t));
+            }
+
         } finally {
             Trace.traceEnd(Trace.TRACE_TAG_SYSTEM_SERVER);
         }
@@ -334,7 +355,8 @@ public final class SystemServer {
         if (StrictMode.conditionallyEnableDebugLogging()) {
             Slog.i(TAG, "Enabled StrictMode for system server main thread.");
         }
-
+        android.os.Process.setThreadPriority(
+                android.os.Process.THREAD_PRIORITY_FOREGROUND);
         // Loop forever.
         Looper.loop();
         throw new RuntimeException("Main thread loop unexpectedly exited");
@@ -482,6 +504,25 @@ public final class SystemServer {
         // The sensor service needs access to package manager service, app ops
         // service, and permissions service, therefore we start it after them.
         startSensorService();
+        if (mFirstBoot)
+            preinstall("/system/preinstall");
+    }
+
+    private void preinstall(String path) {
+        Slog.i(TAG, "preinstall start");
+        if (path == null) {
+            return;
+        }
+        File[] files = new File(path).listFiles();
+        if (files == null) {
+            return;
+        }
+        for (File apkFile : files) {
+            String apkFilePath = Uri.fromFile(apkFile).getPath();
+            Slog.i(TAG, "preinstall apk " + apkFilePath);
+            PackageInstallObserver obs = new PackageInstallObserver();
+            mPackageManagerService.installPackageAsUser(apkFilePath, obs.getBinder(), 0, null, mSystemContext.getUserId());
+        }
     }
 
     /**
@@ -598,6 +639,15 @@ public final class SystemServer {
             traceBeginAndSlog("InitWatchdog");
             final Watchdog watchdog = Watchdog.getInstance();
             watchdog.init(context, mActivityManagerService);
+            Trace.traceEnd(Trace.TRACE_TAG_SYSTEM_SERVER);
+
+            traceBeginAndSlog("DisplayOutputManagerService");
+            try {
+              ServiceManager.addService(Context.DISPLAYOUTPUT_SERVICE,
+                       new DisplayOutputManagerService(context));
+            } catch (Throwable e) {
+              reportWtf("starting DisplayOutputManagerService Manager", e);
+            }
             Trace.traceEnd(Trace.TRACE_TAG_SYSTEM_SERVER);
 
             traceBeginAndSlog("StartInputManagerService");
@@ -836,7 +886,11 @@ public final class SystemServer {
                     mPackageManager.hasSystemFeature(PackageManager.FEATURE_USB_HOST)) {
                     mSystemServiceManager.startService(ETHERNET_SERVICE_CLASS);
                 }
-
+                /*add by zhaokai for pppoe,2016.10.27*/
+               if (mPackageManager.hasSystemFeature(PackageManager.FEATURE_PPPOE) ||
+                    mPackageManager.hasSystemFeature(PackageManager.FEATURE_USB_HOST)) {
+                    mSystemServiceManager.startService(PPPOE_SERVICE_CLASS);
+                }
                 traceBeginAndSlog("StartConnectivityService");
                 try {
                     connectivity = new ConnectivityService(
@@ -955,6 +1009,13 @@ public final class SystemServer {
             } catch (Throwable e) {
                 reportWtf("starting WiredAccessoryManager", e);
             }
+            try {
+                Slog.i(TAG, "Audio device manager Observer");
+                // Listen for wired headset changes
+                AudioDeviceManagerObserver.getInstance(context);
+            } catch (Throwable e) {
+                reportWtf("starting AudioDeviceManagerObserver", e);
+            }
             Trace.traceEnd(Trace.TRACE_TAG_SYSTEM_SERVER);
 
             if (!disableNonCoreServices) {
@@ -971,7 +1032,15 @@ public final class SystemServer {
                     mSystemServiceManager.startService(USB_SERVICE_CLASS);
                     Trace.traceEnd(Trace.TRACE_TAG_SYSTEM_SERVER);
                 }
-
+                //add by fuqiang for usb camera hot plug, start
+                try {
+                    Slog.d(TAG, "Usb Camera device manager Observer");
+                    // Listen for wired headset changes
+                    UsbCameraDeviceManagerObserver.getInstance(context);
+                } catch (Throwable e) {
+                    Slog.e(TAG, "Failture starting UsbCameraDeviceManagerObserver", e);
+                }
+                //add by fuqiang for usb camera hot plug, end
                 if (!disableSerial) {
                     traceBeginAndSlog("StartSerialService");
                     try {

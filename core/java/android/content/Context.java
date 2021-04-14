@@ -2698,6 +2698,7 @@ public abstract class Context {
             //@hide: HDMI_CONTROL_SERVICE,
             INPUT_SERVICE,
             DISPLAY_SERVICE,
+            DISPLAYOUTPUT_SERVICE,
             USER_SERVICE,
             RESTRICTIONS_SERVICE,
             APP_OPS_SERVICE,
@@ -3177,6 +3178,20 @@ public abstract class Context {
      */
     public static final String ETHERNET_SERVICE = "ethernet";
 
+     /*add by zhaokai for pppoe,2016.10.27*/
+     /**
+     * Use with {@link #getSystemService} to retrieve a {@link
+     * android.net.pppoe.PppoeManager} for handling management of
+     * Ethernet access.
+     *
+     * @see #getSystemService
+     * @see android.net.pppoe.PppoeManager
+     *
+     *@hide
+     */
+    public static final String PPPOE_SERVICE = "pppoe";
+
+
     /**
      * Use with {@link #getSystemService} to retrieve a {@link
      * android.net.nsd.NsdManager} for handling management of network service
@@ -3454,6 +3469,15 @@ public abstract class Context {
      * @see android.hardware.display.DisplayManager
      */
     public static final String DISPLAY_SERVICE = "display";
+
+    /**
+     * Use with {@link #getSystemService} to retrieve a
+     * {@link android.os.DisplayOutputManager} for switch display devices settings.
+     *
+     * @see #getSystemService
+     * @see android.os.DisplayOutputManager
+     */
+    public static final String DISPLAYOUTPUT_SERVICE = "display_output";
 
     /**
      * Use with {@link #getSystemService} to retrieve a

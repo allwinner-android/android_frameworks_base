@@ -247,7 +247,7 @@ public class LocaleStore {
     }
 
     public static void fillCache(Context context) {
-        if (sFullyInitialized) {
+        if (false) {
             return;
         }
 

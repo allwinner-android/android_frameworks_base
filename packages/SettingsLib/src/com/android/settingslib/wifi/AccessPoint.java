@@ -787,7 +787,11 @@ public class AccessPoint implements Comparable<AccessPoint> {
             }
             NetworkCapabilities nc = cm.getNetworkCapabilities(nw);
             if (nc != null && !nc.hasCapability(nc.NET_CAPABILITY_VALIDATED)) {
-                return context.getString(R.string.wifi_connected_no_internet);
+                /**
+                 * FIX ME
+                 * maybe should disable CAPTIVE_PORTAL_DETECTION_ENABLED
+                 */
+                //return context.getString(R.string.wifi_connected_no_internet);
             }
         }
 

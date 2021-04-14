@@ -123,6 +123,7 @@ import android.content.IIntentSender;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.IntentSender;
+import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.ConfigurationInfo;
@@ -402,6 +403,16 @@ public final class ActivityManagerService extends ActivityManagerNative
     // here so that while the job scheduler can depend on AMS, the other way around
     // need not be the case.
     public static final String ACTION_TRIGGER_IDLE = "com.android.server.ACTION_TRIGGER_IDLE";
+
+    //add by zhangmm 17/02/27:Set PIP position and size by "Settings" APP saving data
+    private static final int DEFAULT_PIP_BOUNDS_LEFT = 1328;
+    private static final int DEFAULT_PIP_BOUNDS_RIGHT = 1808;
+    private static final int DEFAULT_PIP_BOUNDS_TOP = 54;
+    private static final int DEFAULT_PIP_BOUNDS_BOTTOM = 324;
+    private static final String ALLWINNER_PIP_SETTINGS_BOUNDS_LEFT = "persist.sys.pip.bounds.left";
+    private static final String ALLWINNER_PIP_SETTINGS_BOUNDS_RIGHT = "persist.sys.pip.bounds.right";
+    private static final String ALLWINNER_PIP_SETTINGS_BOUNDS_TOP = "persist.sys.pip.bounds.top";
+    private static final String ALLWINNER_PIP_SETTINGS_BOUNDS_BOTTOM = "persist.sys.pip.bounds.bottom";
 
     /** Control over CPU and battery monitoring */
     // write battery stats every 30 minutes.
@@ -7552,9 +7563,13 @@ public final class ActivityManagerService extends ActivityManagerNative
                 // Use the default launch bounds for pinned stack if it doesn't exist yet or use the
                 // current bounds.
                 final ActivityStack pinnedStack = mStackSupervisor.getStack(PINNED_STACK_ID);
+                int left = SystemProperties.getInt(ALLWINNER_PIP_SETTINGS_BOUNDS_LEFT, DEFAULT_PIP_BOUNDS_LEFT);
+                int right = SystemProperties.getInt(ALLWINNER_PIP_SETTINGS_BOUNDS_RIGHT, DEFAULT_PIP_BOUNDS_RIGHT);
+                int top = SystemProperties.getInt(ALLWINNER_PIP_SETTINGS_BOUNDS_TOP, DEFAULT_PIP_BOUNDS_TOP);
+                int bottom = SystemProperties.getInt(ALLWINNER_PIP_SETTINGS_BOUNDS_BOTTOM, DEFAULT_PIP_BOUNDS_BOTTOM);
+                mDefaultPinnedStackBounds = new Rect(left,top,right,bottom);
                 final Rect bounds = (pinnedStack != null)
                         ? pinnedStack.mBounds : mDefaultPinnedStackBounds;
-
                 mStackSupervisor.moveActivityToPinnedStackLocked(
                         r, "enterPictureInPictureMode", bounds);
             }
@@ -20166,7 +20181,8 @@ public final class ActivityManagerService extends ActivityManagerNative
                     } catch (Exception e) {
                         Slog.w(TAG, "Failed setting process group of " + app.pid
                                 + " to " + app.curSchedGroup);
-                        e.printStackTrace();
+                        //There is too much following print.
+                        //e.printStackTrace();
                     } finally {
                         Binder.restoreCallingIdentity(oldId);
                     }

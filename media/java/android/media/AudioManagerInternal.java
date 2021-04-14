@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 package android.media;
-
+import android.os.IBinder;
 import com.android.server.LocalServices;
 
 /**
@@ -34,6 +34,12 @@ public abstract class AudioManagerInternal {
 
     public abstract void setStreamVolumeForUid(int streamType, int direction, int flags,
             String callingPackage, int uid);
+
+    public abstract void adjustMasterVolumeForUid(int steps, int flags, String callingPackage,
+            int uid);
+
+    public abstract void setMasterMuteForUid(boolean state, int flags, String callingPackage,
+            int userId, int uid);
 
     public abstract void setRingerModeDelegate(RingerModeDelegate delegate);
 

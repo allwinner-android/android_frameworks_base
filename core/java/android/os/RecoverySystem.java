@@ -72,6 +72,7 @@ public class RecoverySystem {
 
     /** Used to communicate with recovery.  See bootable/recovery/recovery.cpp. */
     private static final File RECOVERY_DIR = new File("/cache/recovery");
+    private static File COMMAND_FILE = new File(RECOVERY_DIR, "command");
     private static final File LOG_FILE = new File(RECOVERY_DIR, "log");
     private static final File LAST_INSTALL_FILE = new File(RECOVERY_DIR, "last_install");
     private static final String LAST_PREFIX = "last_";
@@ -473,6 +474,10 @@ public class RecoverySystem {
                 // file as the package name instead.
                 filename = "@/cache/recovery/block.map";
             }
+            String storage="/storage/emulated/";
+            if (filename.startsWith("/storage/emulated/"))
+		filename="/data/media/"+filename.substring(storage.length());
+	    Log.w(TAG, "!!! REBOOTING TO INSTALL " + filename + " !!!");
 
             final String filenameArg = "--update_package=" + filename + "\n";
             final String localeArg = "--locale=" + Locale.getDefault().toString() + "\n";
@@ -483,12 +488,12 @@ public class RecoverySystem {
                 command += securityArg;
             }
 
-            RecoverySystem rs = (RecoverySystem) context.getSystemService(
+            /*RecoverySystem rs = (RecoverySystem) context.getSystemService(
                     Context.RECOVERY_SERVICE);
             if (!rs.setupBcb(command)) {
                 throw new IOException("Setup BCB failed");
-            }
-
+            }*/
+						bootCommand_leagcy(context,command);
             // Having set up the BCB (bootloader control block), go ahead and reboot
             PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
             pm.reboot(PowerManager.REBOOT_RECOVERY_UPDATE);
@@ -687,6 +692,36 @@ public class RecoverySystem {
         }
     }
 
+    private static void bootCommand_leagcy(Context context, String... args) throws IOException {
+        RECOVERY_DIR.mkdirs();  // In case we need it
+        COMMAND_FILE.delete();  // In case it's not writable
+        LOG_FILE.delete();
+
+        FileWriter command = new FileWriter(COMMAND_FILE);
+        try {
+            for (String arg : args) {
+                if (!TextUtils.isEmpty(arg)) {
+                    command.write(arg);
+                    command.write("\n");
+                }
+            }
+        } finally {
+            command.flush();
+            command.close();
+        }
+        try {
+            Runtime runTime = Runtime.getRuntime();
+            java.lang.Process proc = runTime.exec("sync");
+            proc.waitFor();
+        } catch  (Exception e) {
+            e.printStackTrace();
+        }
+        // Having written the command file, go ahead and reboot
+        PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+        pm.reboot(PowerManager.REBOOT_RECOVERY);
+
+        throw new IOException("Reboot failed (no permissions?)");
+    }
     // Read last_install; then report time (in seconds) and I/O (in MiB) for
     // this update to tron.
     // Only report on the reboots immediately after an OTA update.

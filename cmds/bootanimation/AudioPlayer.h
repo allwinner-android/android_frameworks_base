@@ -18,8 +18,25 @@
 #define _BOOTANIMATION_AUDIOPLAYER_H
 
 #include <utils/Thread.h>
+#include <utils/SortedVector.h>
 #include <utils/FileMap.h>
+#include <utils/StrongPointer.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <tinyalsa/asoundlib.h>
 
+#define CARD_NUM 32
+
+
+struct active_pcm {
+    int active;
+    int periodsize;
+    int periodcount;
+    struct pcm *pcm;
+    struct pcm *hub_pcm;
+    int output_device;
+};
 namespace android {
 
 class AudioPlayer : public Thread
@@ -33,16 +50,25 @@ public:
 
 private:
     virtual bool        threadLoop();
+	struct active_pcm   cards[CARD_NUM];
+    bool closeHubRoute(struct mixer* mixer);
 
 private:
     int                 mCard;      // ALSA card to use
     int                 mDevice;    // ALSA device to use
     int                 mPeriodSize;
     int                 mPeriodCount;
-
+    struct mixer *      ahub_mixer;
     FileMap*            mCurrentFile;
 };
-
+class AudioMap
+{
+public:
+    AudioMap();
+    ~AudioMap();
+    int init_audio_map();
+    int reinit_card(struct active_pcm (&cards)[CARD_NUM], int periodsize, int periodcount);
+};
 } // namespace android
 
 #endif // _BOOTANIMATION_AUDIOPLAYER_H

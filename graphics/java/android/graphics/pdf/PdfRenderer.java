@@ -333,7 +333,7 @@ public final class PdfRenderer implements AutoCloseable {
          * </p>
          * <p>
          * <strong>Note: </strong> The destination bitmap format must be
-         * {@link Config#ARGB_8888 ARGB}.
+         * {@link android.graphics.Bitmap.Config#ARGB_8888 ARGB}.
          * </p>
          * <p>
          * <strong>Note: </strong> The optional transformation matrix must be affine as per

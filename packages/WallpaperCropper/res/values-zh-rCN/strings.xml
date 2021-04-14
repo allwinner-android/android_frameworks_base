@@ -19,7 +19,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="wallpaper_instructions" msgid="3524143401182707094">"设置壁纸"</string>
+    <string name="wallpaper_instructions" msgid="3524143401182707094">"按中键设置壁纸"</string>
     <string name="wallpaper_load_fail" msgid="4800700444605404650">"无法加载要设为壁纸的图片"</string>
     <string name="crop_wallpaper" msgid="4882870800623585836">"剪裁壁纸"</string>
 </resources>

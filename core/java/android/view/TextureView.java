@@ -516,7 +516,7 @@ public class TextureView extends View {
      * of the associated surface texture. If the surface texture is not available,
      * this method returns null.</p>
      *
-     * <p>The bitmap returned by this method uses the {@link Bitmap.Config#ARGB_8888}
+     * <p>The bitmap returned by this method uses the {@link android.graphics.Bitmap.Config#ARGB_8888}
      * pixel format and its dimensions are the same as this view's.</p>
      *
      * <p><strong>Do not</strong> invoke this method from a drawing method
@@ -524,7 +524,7 @@ public class TextureView extends View {
      *
      * <p>If an error occurs during the copy, an empty bitmap will be returned.</p>
      *
-     * @return A valid {@link Bitmap.Config#ARGB_8888} bitmap, or null if the surface
+     * @return A valid {@link android.graphics.Bitmap.Config#ARGB_8888} bitmap, or null if the surface
      *         texture is not available or the width &lt;= 0 or the height &lt;= 0
      *
      * @see #isAvailable()
@@ -540,7 +540,7 @@ public class TextureView extends View {
      * of the associated surface texture. If the surface texture is not available,
      * this method returns null.</p>
      *
-     * <p>The bitmap returned by this method uses the {@link Bitmap.Config#ARGB_8888}
+     * <p>The bitmap returned by this method uses the {@link android.graphics.Bitmap.Config#ARGB_8888}
      * pixel format.</p>
      *
      * <p><strong>Do not</strong> invoke this method from a drawing method
@@ -551,7 +551,7 @@ public class TextureView extends View {
      * @param width The width of the bitmap to create
      * @param height The height of the bitmap to create
      *
-     * @return A valid {@link Bitmap.Config#ARGB_8888} bitmap, or null if the surface
+     * @return A valid {@link android.graphics.Bitmap.Config#ARGB_8888} bitmap, or null if the surface
      *         texture is not available or width is &lt;= 0 or height is &lt;= 0
      *
      * @see #isAvailable()

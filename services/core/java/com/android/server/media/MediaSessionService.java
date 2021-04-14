@@ -52,6 +52,8 @@ import android.os.RemoteException;
 import android.os.ResultReceiver;
 import android.os.ServiceManager;
 import android.os.UserHandle;
+import android.os.SystemProperties;
+
 import android.provider.Settings;
 import android.speech.RecognizerIntent;
 import android.text.TextUtils;
@@ -83,6 +85,7 @@ public class MediaSessionService extends SystemService implements Monitor {
 
     private final SessionManagerImpl mSessionManagerImpl;
     private final MediaSessionStack mPriorityStack;
+	private final boolean mUseMasterVolume;
 
     private final ArrayList<MediaSessionRecord> mAllSessions = new ArrayList<MediaSessionRecord>();
     private final SparseArray<UserRecord> mUserRecords = new SparseArray<UserRecord>();
@@ -110,6 +113,11 @@ public class MediaSessionService extends SystemService implements Monitor {
         mPriorityStack = new MediaSessionStack();
         PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
         mMediaEventWakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "handleMediaEvent");
+		if((SystemProperties.get("media.stagefright.mode","true")).equals("true"))
+			mUseMasterVolume = true;
+		else
+			mUseMasterVolume = false;
+
     }
 
     @Override
@@ -899,9 +907,26 @@ public class MediaSessionService extends SystemService implements Monitor {
                     return;
                 }
                 try {
+					if(mUseMasterVolume)
+					{
+					    String packageName = getContext().getOpPackageName();
+						boolean isMasterMute = mAudioService.isMasterMute();
+						int userId = UserHandle.getCallingUserId();
+						if (direction == AudioManager.ADJUST_TOGGLE_MUTE) {
+                            mAudioService.setMasterMute(!isMasterMute, flags, packageName, userId);
+                        } else {
+                            mAudioService.adjustMasterVolume(direction, flags, packageName);
+                            // Do not call setMasterMute when direction = 0 which is used just to
+                            // show the UI.
+                            if (isMasterMute && direction != 0) {
+                                mAudioService.setMasterMute(false, flags, packageName, userId);
+                            }
+                        }
+
+					}else{
                     String packageName = getContext().getOpPackageName();
                     mAudioService.adjustSuggestedStreamVolume(direction, suggestedStream,
-                            flags, packageName, TAG);
+                            flags, packageName, TAG);}
                 } catch (RemoteException e) {
                     Log.e(TAG, "Error adjusting default volume.", e);
                 }

@@ -1107,6 +1107,10 @@ public class TelephonyManager {
         if (!isVoiceCapable()) {
             return PHONE_TYPE_NONE;
         }
+        if(SystemProperties.getBoolean("ro.telephony.disable",false)){
+	    Log.d(TAG,"return PHONE_TYPE_NONE on TV device");
+            return PHONE_TYPE_NONE;
+	}
         return getCurrentPhoneType();
     }
 

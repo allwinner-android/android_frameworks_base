@@ -39,6 +39,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.Display;
 import android.view.View;
+import android.view.KeyEvent;
 import android.view.WindowManager;
 import android.widget.Toast;
 
@@ -81,7 +82,7 @@ public class WallpaperCropActivity extends Activity {
         super.onCreate(savedInstanceState);
         init();
         if (!enableRotation()) {
-            setRequestedOrientation(Configuration.ORIENTATION_PORTRAIT);
+            setRequestedOrientation(Configuration.ORIENTATION_LANDSCAPE);
         }
     }
 
@@ -98,7 +99,7 @@ public class WallpaperCropActivity extends Activity {
             finish();
             return;
         }
-
+	mUri = imageUri;
         // Action bar
         // Show the custom action bar view
         final ActionBar actionBar = getActionBar();
@@ -138,6 +139,15 @@ public class WallpaperCropActivity extends Activity {
             mCropView.destroy();
         }
         super.onDestroy();
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode,KeyEvent event){
+	if(keyCode == KeyEvent.KEYCODE_DPAD_CENTER){
+		 boolean finishActivityWhenDone = true;
+		cropImageAndSetWallpaper(mUri, null, finishActivityWhenDone);
+	}
+	return super.onKeyDown(keyCode,event);
     }
 
     public void setCropViewTileSource(
